@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    background-color: #09090B;
+    background-image: radial-gradient(
+      circle at top,
+      rgba(255, 255, 255, 0.04),
+      transparent 35%
+    );
+    @apply text-[#FAFAFA] antialiased selection:bg-zinc-500/20;
+  }
+}
