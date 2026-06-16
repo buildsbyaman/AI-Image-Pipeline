@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useState } from "react"
 import type { Job } from "@/components/ui/JobCard"
+import { useAuth } from "./AuthContext"
 
 interface UserProfileData {
   name: string
@@ -17,18 +18,13 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [user, setUser] = useState<UserProfileData>({
-    name: "Alex Rivera",
-    email: "alex@example.com",
-    plan: "Pro Plan"
-  })
+  const { user: authUser } = useAuth()
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user_profile")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
-    }
-  }, [])
+  const user: UserProfileData = {
+    name: authUser ? `${authUser.firstName} ${authUser.lastName}`.trim() : "Guest",
+    email: authUser?.email || "",
+    plan: "Pro Plan"
+  }
 
   const addJob = (file: File, prompt: string) => {
     const newJob: Job = {
