@@ -34,6 +34,7 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 *.env
+ai-image-pipeline-499705-ef60bce44cf2.json
 
 # System/OS files
 **/.DS_Store

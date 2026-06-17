@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String         @id @default(uuid()) @db.Uuid
+  email            String         @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  refreshTokenHash String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  files            File[]         @relation("UserFiles")
+  jobs             Job[]          @relation("UserJobs")
+}
+
+model File {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique
+  url          String
+  originalName String
+  mimeType     String
+  size         Int
+  userId       String?  @db.Uuid
+  user         User?    @relation("UserFiles", fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Job {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation("UserJobs", fields: [userId], references: [id])
+  fileKey   String
+  status    JobStatus @default(PENDING)
+  error     String?   @db.Text
+  result    Result?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Result {
+  id              String   @id @default(uuid()) @db.Uuid
+  jobId           String   @unique @db.Uuid
+  job             Job      @relation(fields: [jobId], references: [id])
+  caption         String?  @db.Text
+  labels          String[]
+  flagged         Boolean  @default(false)
+  flaggedCategory String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  email     String
+  type      String
+  subject   String
+  message   String
+  status    NotificationStatus @default(PENDING)
+  provider  String             @default("resend")
+  error     String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
