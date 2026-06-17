@@ -1,0 +1,15 @@
+✅ Image Processing Complete
+
+Hello {{USER_NAME}},
+
+Great news! Your image upload (Job ID: {{JOB_ID}}) has been processed successfully.
+
+Our AI analysis has finished analyzing your image. The newly generated captions, labels, and content safety checks are now available for your review.
+
+Thank you for using our platform!
+
+View your results by logging into your dashboard.
+
+---
+This notification was generated automatically by {{APP_NAME}}.
+© {{YEAR}} {{APP_NAME}}. All rights reserved.

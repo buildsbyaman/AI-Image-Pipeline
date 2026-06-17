@@ -1,0 +1,17 @@
+⚠️ Content Review Required
+
+Hello {{USER_NAME}},
+
+Your recent image upload (Job ID: {{JOB_ID}}) has been automatically reviewed by our content moderation pipeline.
+
+Flagged Category: {{FLAGGED_CATEGORY}}
+
+Please note that this automated flag does not necessarily mean a policy violation has occurred. However, it indicates that the content may require further review to ensure it complies with our community guidelines.
+
+We appreciate your understanding as we work to maintain a safe environment.
+
+View your upload details by logging into your dashboard.
+
+---
+This notification was generated automatically by {{APP_NAME}}.
+© {{YEAR}} {{APP_NAME}}. All rights reserved.
