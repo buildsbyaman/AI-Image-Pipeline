@@ -13,7 +13,7 @@ const setRefreshTokenCookie = (res: Response, token: string) => {
   res.cookie(REFRESH_TOKEN_COOKIE_NAME, token, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     maxAge,
   });
 };
@@ -63,7 +63,11 @@ export class AuthController {
         await AuthService.logout(req.user.id);
       }
       
-      res.clearCookie(REFRESH_TOKEN_COOKIE_NAME);
+      res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production",
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+      });
       
       res.status(200).json(createResponse(true, "Logged out successfully"));
     } catch (error) {

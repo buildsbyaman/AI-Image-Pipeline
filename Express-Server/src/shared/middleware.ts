@@ -26,7 +26,7 @@ export const setupMiddlewares = (app: Application) => {
   );
   app.use(
     cors({
-      origin: process.env.NODE_ENV === "production" ? "https://yourdomain.com" : ["http://localhost:3000", "http://localhost:5173"],
+      origin: (origin, callback) => callback(null, true),
       credentials: true,
     })
   );
@@ -36,7 +36,6 @@ export const setupMiddlewares = (app: Application) => {
     max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: () => process.env.NODE_ENV !== "production",
   });
   app.use(limiter);
 

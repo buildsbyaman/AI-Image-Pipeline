@@ -1,9 +1,13 @@
 import express from 'express';
+import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from './shared/middleware';
 
 const app = express();
+
+// Enable CORS for all domains
+app.use(cors());
 
 // Security Middleware
 app.use(helmet());
