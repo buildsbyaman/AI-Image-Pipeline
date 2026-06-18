@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { AlertTriangle, Clock, RefreshCw, Trash2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { AlertTriangle, Clock, RefreshCw, Trash2, Eye } from "lucide-react"
 import { StatusBadge, type ProcessingStatus } from "./StatusBadge"
 import type { Job } from "@/api/jobs"
 import { useRetryJob, useDeleteJob } from "@/hooks/useJobs"
@@ -18,6 +18,19 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
   const { mutate: deleteJob, isPending: isDeleting } = useDeleteJob()
   const navigate = useNavigate()
   const [imageError, setImageError] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status)) {
+      const start = new Date(job.updatedAt || job.createdAt).getTime()
+      setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)))
+      
+      const interval = setInterval(() => {
+        setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)))
+      }, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [job.status, job.updatedAt, job.createdAt])
 
   const handleDelete = () => {
     if (confirm("Are you sure you want to delete this job and its processed files?")) {
@@ -31,7 +44,7 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
 
   return (
     <div className={`w-full bg-[#111113] border ${job.flagged ? 'border-red-900/50 hover:border-red-800/50' : 'border-zinc-800/50 hover:border-zinc-700/50'} rounded-2xl overflow-hidden transition-colors`}>
-      <div className={`p-4 border-b flex items-center justify-between ${job.flagged ? 'border-red-900/30 bg-red-950/10' : 'border-zinc-800/50 bg-zinc-900/20'}`}>
+      <div className={`p-4 border-b flex items-center justify-between ${job.flagged ? 'border-red-900/30 bg-red-950/10' : 'border-zinc-900/20 bg-zinc-900/20'}`}>
         <div className="flex items-center gap-3">
           <StatusBadge status={(job.status.toLowerCase() as ProcessingStatus) || "pending"} />
           <span className="text-xs text-zinc-500 flex items-center gap-1">
@@ -40,6 +53,14 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate(`/jobs/${job.id}`)}
+            className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-md transition-colors flex items-center gap-2"
+          >
+            <Eye size={14} />
+            View
+          </button>
+
           {job.status === 'FAILED' && (
             <button 
               onClick={() => retryJob(job.id)}
@@ -119,10 +140,10 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
           <div className="space-y-4">
             <div>
               <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Safety Status</span>
-              {job.status === 'PENDING' || job.status === 'PROCESSING' ? (
+              {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) ? (
                  <div className="flex items-center gap-2 mt-1">
-                  <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
-                  <span className="text-sm text-zinc-400">Analyzing...</span>
+                  <div className="w-4 h-4 border-2 border-zinc-600 border-t-indigo-400 rounded-full animate-spin" />
+                  <span className="text-sm text-zinc-400">Analyzing…</span>
                 </div>
               ) : job.status === 'FAILED' ? (
                 <div className="mt-2 p-3 bg-red-950/20 border border-red-950/40 rounded-lg">
@@ -155,89 +176,135 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
         {/* Processing Timeline */}
         {!hideTimeline && (
           <div className="mt-8 border-t border-zinc-800/80 pt-6">
-            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-6">Processing Timeline</span>
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Processing Timeline</span>
+              {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) && (
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                  </span>
+                  <span className="text-[10px] font-mono text-indigo-400">{elapsed}s elapsed</span>
+                </span>
+              )}
+            </div>
             
-            <div className="relative flex items-center justify-between w-full max-w-3xl mx-auto px-4 mb-2">
-              {/* Connector Line Background */}
-              <div className="absolute top-[18px] left-[32px] right-[32px] h-[2px] bg-zinc-800/60 -translate-y-1/2 z-0" />
-              
-              {/* Active/Completed Connector Line */}
-              <div 
-                className="absolute top-[18px] left-[32px] h-[2px] bg-indigo-500 -translate-y-1/2 transition-all duration-500 ease-in-out z-0"
-                style={{ 
-                  width: job.status === 'COMPLETED' ? '100%' 
-                       : job.status === 'W2' ? '66.6%' 
-                       : job.status === 'W1' ? '33.3%' 
-                       : job.status === 'PROCESSING' ? '15%' 
-                       : '0%' 
+            <div className="relative flex items-start justify-between w-full max-w-3xl mx-auto px-4 mb-2">
+              {/* Background rail */}
+              <div className="absolute top-[18px] left-8 right-8 h-[2px] bg-zinc-800/60 z-0" />
+              {/* Filled gradient progress */}
+              <div
+                className="absolute top-[18px] left-8 h-[2px] z-0 transition-[width] duration-700 ease-in-out"
+                style={{
+                  width: job.status === 'COMPLETED' ? 'calc(100% - 64px)'
+                       : job.status === 'W2'         ? 'calc(66.6% - 42px)'
+                       : job.status === 'W1'         ? 'calc(33.3% - 21px)'
+                       : job.status === 'PROCESSING' ? '12%'
+                       : '0%',
+                  background: 'linear-gradient(90deg, #6366f1, #818cf8)',
                 }}
               />
+              {/* Scan shimmer overlay */}
+              {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) && (
+                <div
+                  className="absolute top-[18px] left-8 h-[2px] z-0 overflow-hidden pointer-events-none"
+                  style={{
+                    width: job.status === 'COMPLETED' ? 'calc(100% - 64px)'
+                         : job.status === 'W2'         ? 'calc(66.6% - 42px)'
+                         : job.status === 'W1'         ? 'calc(33.3% - 21px)'
+                         : job.status === 'PROCESSING' ? '12%'
+                         : '0%',
+                  }}
+                >
+                  <div
+                    className="h-full w-16 absolute"
+                    style={{
+                      background: 'linear-gradient(90deg, transparent, rgba(200,210,255,0.7), transparent)',
+                      animation: 'tlScan 1.8s ease-in-out infinite',
+                    }}
+                  />
+                </div>
+              )}
 
-              {/* Steps */}
               {[
-                { title: "Submitted", desc: "Pipeline triggered" },
-                { title: "Worker 1", desc: "Image Captioning" },
-                { title: "Worker 2", desc: "Label Detection" },
-                { title: "Worker 3", desc: "Safety Check" },
+                { title: "Submitted",  desc: "Pipeline triggered" },
+                { title: "Worker 1",   desc: "Image Captioning"   },
+                { title: "Worker 2",   desc: "Label Detection"    },
+                { title: "Worker 3",   desc: "Safety Check"       },
               ].map((step, i) => {
                 const s = job.status;
                 let state: 'completed' | 'active' | 'pending' | 'failed' = 'pending';
-                
                 if (s === 'FAILED') {
-                  const lastCompletedStage: number = job.caption ? 1 : 0; // heuristic check
+                  const lastCompletedStage: number = job.caption ? 1 : 0;
                   if (i === 0) state = 'completed';
                   else if (i === 1) state = lastCompletedStage >= 1 ? 'completed' : 'failed';
                   else if (i === 2) state = lastCompletedStage >= 2 ? 'completed' : (lastCompletedStage === 1 ? 'failed' : 'pending');
                   else if (i === 3) state = lastCompletedStage === 2 ? 'failed' : 'pending';
                 } else {
                   if (i === 0) state = 'completed';
-                  else if (i === 1) {
-                    state = ['W1', 'W2', 'COMPLETED'].includes(s) ? 'completed' 
-                          : s === 'PROCESSING' ? 'active' : 'pending';
-                  } else if (i === 2) {
-                    state = ['W2', 'COMPLETED'].includes(s) ? 'completed' 
-                          : s === 'W1' ? 'active' : 'pending';
-                  } else if (i === 3) {
-                    state = s === 'COMPLETED' ? 'completed' 
-                          : s === 'W2' ? 'active' : 'pending';
-                  }
+                  else if (i === 1) state = ['W1', 'W2', 'COMPLETED'].includes(s) ? 'completed' : s === 'PROCESSING' ? 'active' : 'pending';
+                  else if (i === 2) state = ['W2', 'COMPLETED'].includes(s) ? 'completed' : s === 'W1' ? 'active' : 'pending';
+                  else if (i === 3) state = s === 'COMPLETED' ? 'completed' : s === 'W2' ? 'active' : 'pending';
                 }
 
                 return (
-                  <div key={i} className="flex flex-col items-center relative z-10 w-24">
-                    {/* Step bubble */}
+                  <div key={i} className="flex flex-col items-center relative z-10 w-20 sm:w-24">
+                    {/* Bubble */}
                     <div className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center border-2 text-xs font-semibold transition-all duration-300",
-                      state === 'completed' ? "bg-indigo-500 border-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-                      : state === 'active' ? "bg-[#111113] border-indigo-500 text-indigo-400 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.2)]"
-                      : state === 'failed' ? "bg-[#111113] border-red-500 text-red-500"
-                      : "bg-[#111113] border-zinc-800 text-zinc-500"
+                      "w-9 h-9 rounded-full flex items-center justify-center border-2 text-xs font-bold transition-all duration-300 relative",
+                      state === 'completed' ? "bg-indigo-500 border-indigo-500 text-white shadow-[0_0_14px_rgba(99,102,241,0.5)]"
+                      : state === 'active'  ? "bg-[#0e0e11] border-indigo-500 text-indigo-300"
+                      : state === 'failed'  ? "bg-[#0e0e11] border-red-500 text-red-400"
+                      : "bg-[#0e0e11] border-zinc-700 text-zinc-600"
                     )}>
-                      {state === 'completed' ? "✓" : i + 1}
+                      {state === 'active' && (
+                        <>
+                          <span className="absolute inset-0 rounded-full border-2 border-indigo-400 animate-ping opacity-60" />
+                          <span className="absolute inset-[-5px] rounded-full border border-indigo-500/25 animate-pulse" />
+                        </>
+                      )}
+                      {state === 'completed' ? '✓' : i + 1}
                     </div>
-                    
-                    {/* Title & Desc */}
-                    <div className="text-center mt-3">
+                    {/* Labels */}
+                    <div className="text-center mt-2">
                       <p className={cn(
-                        "text-xs font-medium transition-colors duration-300",
+                        "text-[10px] font-semibold leading-tight",
                         state === 'completed' ? "text-zinc-200"
-                        : state === 'active' ? "text-indigo-400 font-semibold"
-                        : state === 'failed' ? "text-red-400"
+                        : state === 'active'  ? "text-indigo-300"
+                        : state === 'failed'  ? "text-red-400"
                         : "text-zinc-500"
                       )}>
                         {step.title}
                       </p>
-                      <p className="text-[10px] text-zinc-500 mt-0.5 whitespace-nowrap">
-                        {state === 'failed' ? "Failed" : step.desc}
+                      <p className="text-[9px] text-zinc-600 mt-0.5 whitespace-nowrap">
+                        {state === 'failed' ? 'Failed' : step.desc}
                       </p>
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
+
+            {/* Bottom status bar — active jobs only */}
+            {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) && (
+              <div className="mt-5 flex items-center gap-3 bg-indigo-950/20 border border-indigo-900/30 rounded-xl px-4 py-2.5">
+                <div className="w-4 h-4 border-2 border-indigo-700 border-t-indigo-400 rounded-full animate-spin flex-shrink-0" />
+                <p className="text-xs text-indigo-300/80">
+                  Your image is being processed by the AI pipeline.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Keyframe for scan shimmer */}
+      <style>{`
+        @keyframes tlScan {
+          0%   { left: -64px; }
+          100% { left: 100%; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -1,6 +1,5 @@
 import express from "express";
-import { setupMiddlewares } from "./core/middleware/setup.middleware";
-import { errorHandler } from "./core/middleware/error.middleware";
+import { setupMiddlewares, errorHandler } from "./shared/middleware";
 import apiRoutes from "./app.routes";
 
 const app = express();

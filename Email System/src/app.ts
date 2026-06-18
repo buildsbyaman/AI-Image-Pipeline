@@ -1,7 +1,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { errorHandler } from './core/middleware/errorHandler';
+import { errorHandler } from './shared/middleware';
 
 const app = express();
 

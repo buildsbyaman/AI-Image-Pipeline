@@ -36,7 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(response.data.data);
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
+      if (import.meta.env.DEV) {
+        console.warn("User is not authenticated (No active session found).");
+      }
       // Attempt token refresh if available
       try {
         const storedRefreshToken = localStorage.getItem("refreshToken");
@@ -116,7 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.post("/auth/logout");
     } catch (error) {
-      console.error("Logout request failed:", error);
+      if (import.meta.env.DEV) {
+        console.warn("Logout request failed (session have already been cleared).");
+      }
     } finally {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { Upload as UploadIcon, FileImage, X, AlertTriangle, CloudUpload, Sparkles } from 'lucide-react';
+import { Upload as UploadIcon, FileImage, AlertTriangle, CloudUpload, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppShell } from '@/components/layout/AppShell';
 import { useCreateJob } from '@/hooks/useJobs';
@@ -62,7 +62,7 @@ export default function Upload() {
         navigate(`/jobs/${response.jobId}`);
       }, 300);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Failed to upload image');
+      toast.error('Failed to upload image. Please check your connection and try again.');
       setFile(null);
       setUploadProgress(0);
     } finally {
@@ -182,12 +182,7 @@ export default function Upload() {
                   </div>
                 </motion.div>
               ) : (
-                <motion.div 
-                  key="dropzone-state"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                <div 
                   {...getRootProps()} 
                   className={`absolute inset-0 border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center w-full
                     ${isDragActive ? 'border-zinc-500 bg-zinc-800/30 shadow-[0_0_20px_rgba(255,255,255,0.03)]' : 'border-zinc-800 hover:border-zinc-600 bg-zinc-900/10'}
@@ -195,23 +190,32 @@ export default function Upload() {
                   `}
                 >
                   <input {...getInputProps()} />
-                  <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4 hover:scale-105 transition-transform duration-200">
-                    <UploadIcon className="text-zinc-400" size={28} />
-                  </div>
-                  <h3 className="text-lg font-medium text-zinc-200 mb-2">Drag & drop an image here</h3>
-                  <p className="text-sm text-zinc-500 mb-6">or click to browse from your computer</p>
-                  
-                  <div className="flex items-center justify-center gap-6 text-xs text-zinc-600">
-                    <div className="flex items-center gap-1.5">
-                      <FileImage size={14} />
-                      <span>JPG, PNG, WebP</span>
+                  <motion.div 
+                    key="dropzone-state"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="flex flex-col items-center justify-center w-full"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-4 hover:scale-105 transition-transform duration-200">
+                      <UploadIcon className="text-zinc-400" size={28} />
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <AlertTriangle size={14} />
-                      <span>Up to 5MB</span>
+                    <h3 className="text-lg font-medium text-zinc-200 mb-2">Drag & drop an image here</h3>
+                    <p className="text-sm text-zinc-500 mb-6">or click to browse from your computer</p>
+                    
+                    <div className="flex items-center justify-center gap-6 text-xs text-zinc-600">
+                      <div className="flex items-center gap-1.5">
+                        <FileImage size={14} />
+                        <span>JPG, PNG, WebP</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <AlertTriangle size={14} />
+                        <span>Up to 5MB</span>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                </div>
               )}
             </AnimatePresence>
           </div>

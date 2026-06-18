@@ -1,8 +1,8 @@
 import { Router } from "express";
-import authRoutes from "./modules/auth/auth.routes";
-import fileRoutes from "./modules/file/file.routes";
-import jobRoutes from "./modules/job/job.routes";
-import notificationRoutes from "./modules/notification/notification.routes";
+import authRoutes from "./features/auth/auth.routes";
+import fileRoutes from "./features/files/files.routes";
+import jobRoutes from "./features/jobs/jobs.routes";
+import notificationRoutes from "./features/realtime/realtime.routes";
 
 const router = Router();
 

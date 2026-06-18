@@ -1,14 +1,24 @@
 import app from './app';
-import { env } from './config/env';
-import { logger } from './shared/utils/logger';
+import { env } from './config';
+import { logger } from './shared/logger';
 
 const startServer = async () => {
   try {
-    app.listen(env.PORT, () => {
+    const server = app.listen(env.PORT, () => {
       logger.info(`🚀 Email Service API is running on port ${env.PORT} in ${env.NODE_ENV} mode`);
     });
+
+    const gracefulShutdown = (signal: string) => {
+      logger.info(`Received ${signal}, shutting down Email Service API server gracefully...`);
+      server.close(() => {
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   } catch (error) {
-    logger.error('Failed to start server:', error);
+    logger.error(error as Error, 'Failed to start server:');
     process.exit(1);
   }
 };

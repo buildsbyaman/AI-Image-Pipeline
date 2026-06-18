@@ -1,122 +1,65 @@
-# Notification Service API Documentation
+# Email System API & Queue Documentation
 
-Base URL: `http://localhost:5005`
+The Email System is a background worker service powered by **BullMQ**, **Redis**, and the **Resend API**. It consumes email job payloads asynchronously from a centralized queue.
 
-All endpoints generally return a standardized JSON response format:
+---
 
+## 1. Queue Configuration
+
+*   **Queue Name:** `email-queue`
+*   **Job Name:** `send-pipeline-email`
+*   **Concurrency:** `5` parallel jobs per worker instance
+
+---
+
+## 2. Job Payload Schema
+
+Jobs added to `email-queue` must match the `EmailJobPayload` interface:
+
+```typescript
+export interface EmailJobPayload {
+  to: string;                         // Recipient email address
+  userName: string;                   // User's name for template personalization
+  type: 'IMAGE_PROCESSED_SUCCESS' | 'CONTENT_FLAGGED'; // Email type
+  jobId: string;                      // Media processing job ID
+  category?: string;                  // Flagged category (required if type is CONTENT_FLAGGED)
+}
+```
+
+### Example: Image Processed Successfully
 ```json
 {
-  "success": true | false,
-  "message": "Description of the operation outcome",
-  "data": {}, // Optional: Returned on success
-  "errors": [] // Optional: Returned on failure (e.g. Zod validation errors)
+  "name": "send-pipeline-email",
+  "data": {
+    "to": "user@example.com",
+    "userName": "Jane",
+    "type": "IMAGE_PROCESSED_SUCCESS",
+    "jobId": "job-uuid-12345"
+  }
+}
+```
+
+### Example: Content Flagged Warning
+```json
+{
+  "name": "send-pipeline-email",
+  "data": {
+    "to": "user@example.com",
+    "userName": "Jane",
+    "type": "CONTENT_FLAGGED",
+    "jobId": "job-uuid-12345",
+    "category": "nsfw"
+  }
 }
 ```
 
 ---
 
-## 1. Queue Email Notification
-Queues an email notification for a user.
+## 3. Email Templates
 
-*   **Endpoint:** `/api/v1/notifications/email`
-*   **Method:** `POST`
-*   **Headers:** `Content-Type: application/json`
-*   **Request Body:**
-    ```json
-    {
-      "userId": "uuid-string-here",
-      "email": "user@example.com"
-    }
-    ```
-    *Note: `userId` must be a valid UUID and `email` must be a valid email format.*
+The service renders dynamic HTML and plain text email templates using a lightweight local engine located in `src/features/email/templates/`.
 
-*   **Response (202 Accepted):**
-    ```json
-    {
-      "success": true,
-      "message": "Notification queued"
-    }
-    ```
-
----
-
-## 2. Get All Notifications
-Fetches a paginated list of notifications.
-
-*   **Endpoint:** `/api/v1/notifications`
-*   **Method:** `GET`
-*   **Query Parameters:**
-    *   `page` (optional): Page number (default: 1)
-    *   `limit` (optional): Number of items per page (default: 10)
-
-*   **Response (200 OK):**
-    ```json
-    {
-      "data": [
-        {
-          "id": "uuid-string-here",
-          "userId": "uuid-string-here",
-          "recipient": "user@example.com",
-          "status": "DELIVERED",
-          "createdAt": "2026-06-17T05:00:00.000Z",
-          "updatedAt": "2026-06-17T05:00:00.000Z"
-        }
-      ],
-      "pagination": {
-        "page": 1,
-        "limit": 10,
-        "total": 50,
-        "totalPages": 5
-      }
-    }
-    ```
-    *Note: This specific endpoint returns `data` and `pagination` directly at the root object level without the `success` wrapper.*
-
----
-
-## 3. Get Notification by ID
-Fetches details of a specific notification by its ID.
-
-*   **Endpoint:** `/api/v1/notifications/:id`
-*   **Method:** `GET`
-
-*   **Response (200 OK):**
-    ```json
-    {
-      "success": true,
-      "data": {
-        "id": "uuid-string-here",
-        "userId": "uuid-string-here",
-        "recipient": "user@example.com",
-        "status": "DELIVERED",
-        "createdAt": "2026-06-17T05:00:00.000Z",
-        "updatedAt": "2026-06-17T05:00:00.000Z"
-      }
-    }
-    ```
-
----
-
-## 4. Retry Notification
-Re-queues a failed or pending notification for delivery.
-
-*   **Endpoint:** `/api/v1/notifications/:id/retry`
-*   **Method:** `PATCH`
-
-*   **Response (200 OK):**
-    ```json
-    {
-      "success": true,
-      "message": "Notification requeued for delivery"
-    }
-    ```
-
----
-
-## Common Error Codes
-
-| Status Code | Reason / Example |
-| :--- | :--- |
-| **400 Bad Request** | Missing fields or Zod validation failures (e.g., invalid UUID or email format). |
-| **404 Not Found** | The specified notification ID does not exist. |
-| **500 Internal Error** | Unhandled system exception or database connection failure. |
+| Job Type | Template Name | Description |
+| :--- | :--- | :--- |
+| `IMAGE_PROCESSED_SUCCESS` | `processed` | Notification that AI image processing succeeded. |
+| `CONTENT_FLAGGED` | `flagged` | Safety warning indicating image was flagged for moderation. |

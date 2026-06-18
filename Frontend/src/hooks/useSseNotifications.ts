@@ -25,11 +25,18 @@ export const useSseNotifications = () => {
         queryClient.invalidateQueries({ queryKey: ['job', message.jobId] });
       }
 
-      // Show a toast message for user feedback
-      toast.success(`${message.title}: ${message.message}`, {
-        duration: 5000,
-        icon: '🔔',
-      });
+      // Show a toast notification with the appropriate style based on outcome
+      const isFailed  = message.title?.toLowerCase().includes('failed');
+      const isFlagged = message.title?.toLowerCase().includes('flagged');
+      const toastMsg  = message.message || message.title || 'Pipeline update';
+
+      if (isFailed) {
+        toast.error(toastMsg, { duration: 6000 });
+      } else if (isFlagged) {
+        toast(toastMsg, { duration: 5000, icon: '⚠️' });
+      } else {
+        toast.success(toastMsg, { duration: 4000 });
+      }
     });
 
     return () => {

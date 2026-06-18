@@ -26,7 +26,9 @@ class SseService {
     };
 
     this.eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
+      if (import.meta.env.DEV) {
+        console.warn('SSE connection interrupted (attempting reconnection / disconnect):', error);
+      }
       this.disconnect();
     };
   }

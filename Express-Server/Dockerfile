@@ -12,4 +12,4 @@ RUN npm install
 EXPOSE 8000
 
 # Start server
-CMD ["npm", "run", "dev", "--workspace=server"]
+CMD ["npm", "run", "dev", "--workspace=ai-image-pipeline"]

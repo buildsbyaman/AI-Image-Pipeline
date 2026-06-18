@@ -1,129 +1,99 @@
 # AI Processing Worker Queue & Event API Documentation
 
-The AI Processing Worker is a background processing microservice that processes images asynchronously. Since it does not expose an HTTP REST interface, this document defines the asynchronous message-passing interface (queues), payload formats, state transitions, database side effects, and downstream events.
+The AI Processing Worker is a background processing microservice that processes images asynchronously. Since it does not expose an HTTP REST interface, this document defines the asynchronous message-passing interface (queues), payload formats, state transitions, and downstream events.
 
 ## Queue Context
 
 *   **Redis Connection Host:** Shared Redis instance configured via environment variables.
-*   **Database Engine:** PostgreSQL via Prisma (shared database schema).
+*   **Database Engine:** Database-free (all database updates are handled by the Express Server based on events).
 *   **Task/Queue Processor:** BullMQ (Node.js/TypeScript queue library).
 
 ---
 
-## 1. Input Queue: `image-processing`
+## 1. Multi-Stage Pipeline Queues
 
-The worker listens on the `image-processing` BullMQ queue for incoming image-processing tasks.
+Instead of a single queue, the AI pipeline splits execution across three sequential queues:
 
-*   **Queue Name:** `image-processing`
-*   **Job Name:** Custom or default BullMQ job name (e.g., `image-process-job`).
+### Stage W1: `image-captioning`
+*   **Queue Name:** `image-captioning`
 *   **Payload Format (JSON):**
     ```json
     {
-      "jobId": "db-job-uuid-here",
-      "userId": "db-user-uuid-here",
-      "fileKey": "r2-storage-file-key-here"
+      "jobId": "db-job-id-here",
+      "userId": "db-user-id-here",
+      "fileKey": "r2-storage-file-key-here",
+      "email": "user-email-here",
+      "firstName": "user-first-name-here"
     }
     ```
-    *Note: `jobId` and `userId` must exist in the database, and `fileKey` must point to a valid uploaded image in the Cloudflare R2 bucket.*
+*   **Worker:** `ImageCaptioningWorker` downloads the file from Cloudflare R2, writes it to local disk cache (`/tmp/pipeline-job-{jobId}.tmp`), performs image captioning via Hugging Face, publishes `W1_COMPLETED` progress notice to `pipeline-events` queue, and enqueues to `label-detection`.
 
-### State Transitions (PostgreSQL `Job` Status)
+### Stage W2: `label-detection`
+*   **Queue Name:** `label-detection`
+*   **Payload Format (JSON):**
+    ```json
+    {
+      "jobId": "db-job-id-here",
+      "userId": "db-user-id-here",
+      "fileKey": "r2-storage-file-key-here",
+      "email": "user-email-here",
+      "firstName": "user-first-name-here",
+      "caption": "A description of the image content"
+    }
+    ```
+*   **Worker:** `LabelDetectionWorker` reads the cached image from disk (falls back to R2 download if missing), performs label detection via Google Cloud Vision API, publishes `W2_COMPLETED` progress notice to `pipeline-events` queue, and enqueues to `safety-check`.
 
-During execution, the worker mutates the status of the job in PostgreSQL:
-
-```mermaid
-graph TD
-    A[PENDING] -->|Worker Picks Up Job| B[PROCESSING]
-    B -->|Pipeline Success| C[COMPLETED]
-    B -->|Pipeline Failure| D[FAILED]
-```
-
-*   **PROCESSING State Update:** Immediately after dequeueing, the job's status changes to `PROCESSING`.
-*   **COMPLETED State Update:** Upon success, a `Result` record is created, and the job status is set to `COMPLETED`.
-*   **FAILED State Update:** If any step fails, the status is set to `FAILED`, and the `error` column in the database is updated with the error details.
+### Stage W3: `safety-check`
+*   **Queue Name:** `safety-check`
+*   **Payload Format (JSON):**
+    ```json
+    {
+      "jobId": "db-job-id-here",
+      "userId": "db-user-id-here",
+      "fileKey": "r2-storage-file-key-here",
+      "email": "user-email-here",
+      "firstName": "user-first-name-here",
+      "caption": "A description of the image content",
+      "labels": ["Tag1", "Tag2", "Tag3"]
+    }
+    ```
+*   **Worker:** `SafetyCheckWorker` reads the cached image from disk, performs SafeSearch detection via Google Cloud Vision API, publishes the final milestone event (`IMAGE_PROCESSED_SUCCESS` or `CONTENT_FLAGGED`) to `pipeline-events` queue, enqueues email data to `email-queue`, and **deletes the temporary cache file** to free disk space.
 
 ---
 
-## 2. AI Processing Pipeline
+## 2. Downstream Events (Dispatched to Express Server)
 
-When a job is processed, the worker executes the following sequential pipeline:
+The worker system pushes events to the **`pipeline-events`** queue, which is consumed by the Express Server backend:
 
-| Step | Service | API/Provider | Description |
+| Event Type | Sent By | Payload | Description |
 | :--- | :--- | :--- | :--- |
-| **1. Storage** | `StorageService` | Cloudflare R2 | Downloads the raw image buffer using the provided `fileKey`. |
-| **2. Captioning** | `CaptioningService` | Hugging Face (Salesforce/blip-image-captioning-base) | Generates a textual description/caption of the image content. |
-| **3. Tagging** | `VisionLabelService` | Google Cloud Vision API | Detects prominent visual labels/tags within the image. |
-| **4. Moderation** | `SafetyService` | Google Cloud Vision API | Screens the image for adult, violent, racy, medical, or spoofed content. |
+| **`W1_COMPLETED`** | Stage W1 | `{ type, jobId, userId, caption }` | Sent after image caption is generated. |
+| **`W2_COMPLETED`** | Stage W2 | `{ type, jobId, userId, labels }` | Sent after visual labels are generated. |
+| **`IMAGE_PROCESSED_SUCCESS`** | Stage W3 | `{ type, jobId, userId, caption, labels }` | Sent when safety check passes. |
+| **`CONTENT_FLAGGED`** | Stage W3 | `{ type, jobId, userId, category, caption, labels }` | Sent when safety check flags the content. |
+| **`FAILED`** | Any Stage | `{ type, jobId, userId, error }` | Sent on unhandled worker failures. |
 
 ---
 
-## 3. Database Side-Effects (PostgreSQL via Prisma)
+## 3. Email Notification Handoff (`email-queue`)
 
-Upon completion, the worker persists the processed metadata into the `Result` model, linked to the `Job` model.
-
-### Saved Result Payload Schema
-
-```json
-{
-  "id": "result-uuid-here",
-  "jobId": "job-uuid-here",
-  "caption": "A beautiful sunset over the mountains",
-  "labels": ["Sunset", "Sky", "Mountain", "Nature"],
-  "flagged": false,
-  "flaggedCategory": null,
-  "createdAt": "2026-06-17T05:00:00.000Z",
-  "updatedAt": "2026-06-17T05:00:00.000Z"
-}
-```
-
-*   If the image is flagged by the moderation step, `flagged` will be `true`, and `flaggedCategory` will contain the safety category (e.g., `adult`).
-
----
-
-## 4. Output Queue: `notifications`
-
-After processing is finished, the worker publishes a job to the downstream `notifications` queue to notify the user.
-
-*   **Queue Name:** `notifications`
-*   **Job Name:** `send-notification`
-*   **Attempts & Backoff:**
-    *   `attempts`: 3
-    *   `backoff`: Exponential, 1000ms delay
-
-Depending on the safety evaluation, one of the two event types is dispatched:
-
-### Case A: Image Processed Successfully (Safe)
-
-Sent when the image passes all safety checks.
-
-*   **Payload Format (JSON):**
+In Stage W3, if user details are present, the worker enqueues a task to the `email-queue` consumed by the dedicated Email System:
+*   **Queue Name:** `email-queue`
+*   **Payload Format:**
     ```json
     {
-      "type": "IMAGE_PROCESSED_SUCCESS",
-      "userId": "db-user-uuid-here",
-      "jobId": "db-job-uuid-here"
-    }
-    ```
-
-### Case B: Adult Content Flagged (Unsafe)
-
-Sent when safety checks flag the image as unsafe.
-
-*   **Payload Format (JSON):**
-    ```json
-    {
-      "type": "ADULT_CONTENT_FLAGGED",
-      "userId": "db-user-uuid-here",
-      "jobId": "db-job-uuid-here",
-      "category": "adult"
+      "to": "user-email-here",
+      "userName": "user-first-name-here",
+      "type": "IMAGE_PROCESSED_SUCCESS" | "CONTENT_FLAGGED",
+      "jobId": "db-job-id-here",
+      "category": "flagged-category-here"
     }
     ```
 
 ---
 
-## Error Handling & Resiliency
+## Error Handling & Disk Resiliency
 
-| Failure Scenario | Recovery Mechanism | Database Effect |
-| :--- | :--- | :--- |
-| **Third-Party API Downtime** | BullMQ retry mechanism will rerun the job (up to queue-configured limits). | Job remains in `PROCESSING` or moves to `FAILED` with retry logs. |
-| **Non-Retryable Errors (e.g., Missing File)** | Job is immediately marked as `FAILED` without retrying. | `status` updated to `FAILED`, and error message written to database `error` field. |
-| **Redis/Database Disconnection** | The worker process will log the exception and temporarily block processing until connection is re-established. | No updates until connection is recovered. |
+*   **Exhausted Retries Handler**: If Stage 1 or Stage 2 fails permanently, a fail hook runs that cleans up `/tmp/pipeline-job-{jobId}.tmp` to prevent disk leaks.
+*   **Hourly Sweeper Daemon**: An automated hourly sweeper deletes any temporary cached files older than 15 minutes to guarantee that disk cache memory never fills up.
+*   **Resilient Cache Fallback**: If a worker runs on a separate machine (cache miss), it will automatically fall back to downloading the file from Cloudflare R2 privately, assuring execution completeness.

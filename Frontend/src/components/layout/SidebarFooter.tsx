@@ -16,7 +16,7 @@ export function SidebarFooter({ name }: SidebarFooterProps) {
       await logout()
       navigate("/login")
     } catch (error) {
-      console.error("Logout failed:", error)
+      console.warn("Logout redirect failed:", error);
     }
   }
 

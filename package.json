@@ -5,12 +5,14 @@
     "Frontend",
     "Express-Server",
     "Worker System",
-    "Notification System",
-    "packages/*"
+    "Email System"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces",
+    "dev": "concurrently \"npm run dev -w Frontend\" \"npm run dev -w Express-Server\" \"npm run dev -w \\\"Worker System\\\"\" \"npm run dev -w \\\"Email System\\\"\"",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }

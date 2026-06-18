@@ -1,10 +1,12 @@
+name: imagepipeline
 services:
   mongo:
     image: mongo:latest
-    container_name: media-mongo
+    container_name: mongo
     restart: unless-stopped
+    command: mongod --quiet --setParameter logComponentVerbosity='{"accessControl":{"verbosity":-1}}'
     environment:
-      MONGO_INITDB_DATABASE: media_pipeline
+      MONGO_INITDB_DATABASE: aiimagepipeline
     ports:
       - "27017:27017"
     volumes:
@@ -12,7 +14,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: media-redis
+    container_name: redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -21,10 +23,11 @@ services:
       - redis_data:/data
 
   server:
+    init: true
     build:
       context: ./
-      dockerfile: server/Dockerfile
-    container_name: media-api
+      dockerfile: Express-Server/Dockerfile
+    container_name: express-server
     restart: unless-stopped
     depends_on:
       mongo:
@@ -34,20 +37,21 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./server/.env
+      - ./Express-Server/.env
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/media_pipeline?authSource=admin
+      - DATABASE_URL=mongodb://mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
       - NOTIFICATION_SERVICE_URL=http://notification:5005
     volumes:
-      - ./server:/app/server
-      - /app/server/node_modules
+      - ./Express-Server:/app/Express-Server
+      - /app/Express-Server/node_modules
 
   worker:
+    init: true
     build:
       context: ./
-      dockerfile: worker/Dockerfile
-    container_name: media-worker
+      dockerfile: Worker System/Dockerfile
+    container_name: worker
     restart: unless-stopped
     depends_on:
       mongo:
@@ -55,20 +59,21 @@ services:
       redis:
         condition: service_started
     env_file:
-      - ./worker/.env
+      - ./Worker System/.env
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/media_pipeline?authSource=admin
+      - DATABASE_URL=mongodb://mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/worker/ai-image-pipeline-499705-ef60bce44cf2.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/Worker System/ai-image-pipeline.json
     volumes:
-      - ./worker:/app/worker
-      - /app/worker/node_modules
+      - ./Worker System:/app/Worker System
+      - /app/Worker System/node_modules
 
   notification:
+    init: true
     build:
       context: ./
-      dockerfile: notification/Dockerfile
-    container_name: media-notification
+      dockerfile: Email System/Dockerfile
+    container_name: notification
     restart: unless-stopped
     depends_on:
       mongo:
@@ -76,29 +81,30 @@ services:
       redis:
         condition: service_started
     env_file:
-      - ./notification/.env
+      - ./Email System/.env
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/media_pipeline?authSource=admin
+      - DATABASE_URL=mongodb://mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
     volumes:
-      - ./notification:/app/notification
-      - /app/notification/node_modules
+      - ./Email System:/app/Email System
+      - /app/Email System/node_modules
 
   frontend:
+    init: true
     build:
       context: ./
-      dockerfile: frontend/Dockerfile
-    container_name: media-frontend
+      dockerfile: Frontend/Dockerfile
+    container_name: frontend
     restart: unless-stopped
     depends_on:
       - server
     ports:
       - "5173:5173"
     env_file:
-      - ./frontend/.env
+      - ./Frontend/.env
     volumes:
-      - ./frontend:/app/frontend
-      - /app/frontend/node_modules
+      - ./Frontend:/app/Frontend
+      - /app/Frontend/node_modules
 
 volumes:
   mongo_data:

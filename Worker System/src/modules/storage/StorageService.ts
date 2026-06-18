@@ -1,10 +1,13 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { env } from "../../config/env";
 
+// Handles streaming and downloading media files from Cloudflare R2 storage buckets
 export class StorageService {
   private s3Client: S3Client;
 
   constructor() {
+    // R2 utilizes the S3 client protocol but uses Account ID endpoint mappings.
+    // Region is auto-detected at the edge by Cloudflare.
     this.s3Client = new S3Client({
       region: "auto",
       endpoint: `https://${env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -17,6 +20,7 @@ export class StorageService {
     });
   }
 
+  // Pulls a file from R2 and streams chunks sequentially to assemble an in-memory binary Buffer
   async downloadImageBuffer(fileKey: string): Promise<Buffer> {
     const command = new GetObjectCommand({
       Bucket: env.R2_BUCKET_NAME,
