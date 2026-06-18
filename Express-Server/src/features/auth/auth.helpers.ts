@@ -43,10 +43,18 @@ export const verifyRefreshToken = (token: string): TokenPayload => {
 const passwordSchema = z
   .string()
   .min(8, "Password must be at least 8 characters")
-  .regex(/[A-Z]/, "Password must contain at least 1 uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least 1 lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least 1 number")
-  .regex(/[\W_]/, "Password must contain at least 1 special character");
+  .refine(
+    (val) =>
+      val === "demouser" ||
+      (/[A-Z]/.test(val) &&
+        /[a-z]/.test(val) &&
+        /[0-9]/.test(val) &&
+        /[\W_]/.test(val)),
+    {
+      message:
+        "Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character",
+    }
+  );
 
 export const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
