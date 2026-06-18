@@ -63,3 +63,22 @@ To prevent cache directory growth or disk space leaks:
 - **Task Orchestration**: BullMQ & Redis
 - **Storage Integration**: AWS SDK v3 (Cloudflare R2)
 - **AI Engine**: OpenAI API (`gpt-4o-mini`)
+
+---
+
+## API Keys
+
+This service requires the following API keys to function:
+
+### OpenAI API Key
+1. Sign in to the [OpenAI Platform](https://platform.openai.com/).
+2. Navigate to the API keys section.
+3. Click "Create new secret key".
+4. Copy the key and use it as `OPENAI_API_KEY`.
+
+### Cloudflare R2 Credentials
+1. Sign in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Go to R2 Object Storage.
+3. Create a bucket to get your `R2_BUCKET_NAME`.
+4. Click on "Manage R2 API Tokens" and create a new token.
+5. Copy the Account ID (`R2_ACCOUNT_ID`), Access Key ID (`R2_ACCESS_KEY_ID`), and Secret Access Key (`R2_SECRET_ACCESS_KEY`).

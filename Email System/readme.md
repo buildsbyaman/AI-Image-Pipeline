@@ -98,3 +98,15 @@ Each template is composed of:
 2. **Image Processed Successfully (`processed`)**
    - **Subject**: `Image Processed Successfully`
    - **Variables**: `{{USER_NAME}}`, `{{JOB_ID}}`, `{{APP_NAME}}`, `{{YEAR}}`
+
+---
+
+## API Keys
+
+This service requires the following API key to function:
+
+### Resend API Key
+1. Sign in to the [Resend Dashboard](https://resend.com/).
+2. Navigate to the API Keys section.
+3. Click "Create API Key".
+4. Copy the key and use it as `RESEND_API_KEY`.

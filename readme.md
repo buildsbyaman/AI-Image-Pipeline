@@ -110,3 +110,80 @@ graph TD
 - **Socket Handshake Verification**: Socket.IO connections actively reject connections lacking a valid, signed JWT access token.
 - **Direct Upload Security**: Clients must request cryptographically signed URLs (time-limited) to interact with Cloudflare R2, ensuring malicious payloads bypass backend servers entirely.
 - **Error Sanitization**: Global error handlers scrub stack traces before responses reach clients in production.
+
+---
+
+## API Keys
+
+The microservices in this project require several API keys. Here is how to obtain them:
+
+### OpenAI API Key (Worker System)
+1. Sign in to the [OpenAI Platform](https://platform.openai.com/).
+2. Navigate to the API keys section.
+3. Click "Create new secret key".
+4. Copy the key and use it as `OPENAI_API_KEY`.
+
+### Resend API Key (Email System)
+1. Sign in to the [Resend Dashboard](https://resend.com/).
+2. Navigate to the API Keys section.
+3. Click "Create API Key".
+4. Copy the key and use it as `RESEND_API_KEY`.
+
+### Cloudflare R2 Credentials (Express-Server & Worker System)
+1. Sign in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Go to R2 Object Storage.
+3. Create a bucket to get your `R2_BUCKET_NAME`.
+4. Click on "Manage R2 API Tokens" and create a new token.
+5. Copy the Account ID (`R2_ACCOUNT_ID`), Access Key ID (`R2_ACCESS_KEY_ID`), and Secret Access Key (`R2_SECRET_ACCESS_KEY`).
+
+---
+
+## Service Documentation
+
+For detailed information about each microservice, please refer to their respective README documentation:
+
+- [Express-Server Documentation](Express-Server/readme.md)
+- [Worker System Documentation](Worker%20System/readme.md)
+- [Email System Documentation](Email%20System/readme.md)
+- [Frontend Documentation](Frontend/readme.md)
+
+---
+
+## Running with Docker Compose
+
+You can spin up the entire microservices architecture, including the database and message broker, using Docker Compose.
+
+### 1. Setup Environment Variables
+
+Before starting the containers, you must manually create a `.env` file in each service directory (`Express-Server`, `Worker System`, `Email System`, and `Frontend`). Ensure you configure your database URL, Redis host, and the necessary API keys as outlined in their respective documentation.
+
+### 2. Start the Application
+
+Once the `.env` files are configured, build and run the services in detached mode:
+
+```bash
+docker compose up --build -d
+```
+
+### 3. Accessing the Services
+
+After a successful startup, the services will be available at the following local endpoints:
+
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **Express Backend API**: [http://localhost:8000](http://localhost:8000)
+- **MongoDB**: `localhost:27017`
+- **Redis**: `localhost:6379`
+
+### Stopping the Application
+
+To safely shut down the containers without deleting your database and redis volumes:
+
+```bash
+docker compose down
+```
+
+To shut down and wipe all data volumes (useful for a clean reset):
+
+```bash
+docker compose down -v
+```
