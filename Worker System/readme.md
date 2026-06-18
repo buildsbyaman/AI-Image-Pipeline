@@ -25,29 +25,6 @@ Instead of running a single monolithic job, the AI pipeline is split into three 
    - Publishes final execution status (`IMAGE_PROCESSED_SUCCESS` or `CONTENT_FLAGGED`) and enqueues the email notification.
    - **Cleanup**: Deletes the local temporary cache file to free up space.
 
-```mermaid
-graph TD
-    A[Express Server] -- enqueue job --> B(image-captioning Queue)
-    B --> C[ImageCaptioningWorker W1]
-    C -- "Download R2 & Cache locally" --> C
-    C -- "Process via OpenAI" --> C
-    C -- "publish W1_COMPLETED" --> E[Express: pipeline-events Worker]
-    C -- "enqueue next" --> D(label-detection Queue)
-    D --> F[LabelDetectionWorker W2]
-    F -- "Read local cache" --> F
-    F -- "Process via OpenAI" --> F
-    F -- "publish W2_COMPLETED" --> E
-    F -- "enqueue next" --> G(safety-check Queue)
-    G --> H[SafetyCheckWorker W3]
-    H -- "Read local cache" --> H
-    H -- "Process via OpenAI" --> H
-    H -- "Delete tmp file" --> H
-    H -- "publish final result" --> E
-    H -- "enqueue notification" --> I(email-queue Queue)
-```
-
----
-
 ## Cache Protection & Memory Safeguards
 
 To prevent cache directory growth or disk space leaks:
