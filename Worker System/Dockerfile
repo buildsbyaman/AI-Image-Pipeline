@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy all files for monorepo setup
 COPY . .
 
-# Install dependencies across all workspaces
-RUN npm install
+# Install dependencies (ignoring local lockfile to force native bindings fetch)
+RUN rm -f package-lock.json && npm install
 
 # Start worker
 CMD ["npm", "run", "worker", "--workspace=worker"]

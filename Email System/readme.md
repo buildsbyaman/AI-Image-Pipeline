@@ -3,6 +3,7 @@
 A standalone microservice for the AI Image Processing Platform responsible for queuing, managing, and sending email notifications using Resend and BullMQ.
 
 It operates under a decoupled architecture consisting of:
+
 1. **API Server**: An Express app that exposes HTTP endpoints (currently a `/health` check, serving as an entry point for extensibility).
 2. **Queue Worker**: A BullMQ worker that processes background jobs off Redis and interacts with the Resend API.
 
@@ -22,6 +23,7 @@ It operates under a decoupled architecture consisting of:
 ### 1. Prerequisites
 
 Ensure you have the following installed and running locally:
+
 - **Node.js** (v18+)
 - **Redis**
 
@@ -84,10 +86,12 @@ src/
 The service has a custom templating system under `src/features/email/templates` which generates responsive, dark-mode SaaS emails.
 
 Each template is composed of:
+
 - A `.html` file containing responsive modern layouts and CSS.
 - A `.txt` file containing the plain-text alternative.
 
 ### Available Templates:
+
 1. **Content Flagged (`flagged`)**
    - **Subject**: `Content Warning: Image Flagged`
    - **Variables**: `{{USER_NAME}}`, `{{JOB_ID}}`, `{{FLAGGED_CATEGORY}}`, `{{APP_NAME}}`, `{{YEAR}}`

@@ -51,6 +51,7 @@ graph TD
 ## Cache Protection & Memory Safeguards
 
 To prevent cache directory growth or disk space leaks:
+
 - **Exhausted Retries Handler**: If any stage fails permanently after exhausting all retries, the worker automatically intercepts the failure and cleans up the temporary cache file.
 - **Hourly Cache Sweeper**: A periodic sweeper runs every hour in the background, automatically cleaning up any abandoned `pipeline-job-*.tmp` cache files older than 15 minutes.
 
