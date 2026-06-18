@@ -1,7 +1,4 @@
-node_modules
-dist
+**/node_modules
+**/dist
 .env
 npm-debug.log
-server/node_modules
-Worker System/node_modules
-Notification Service/node_modules
