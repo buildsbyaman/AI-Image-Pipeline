@@ -1,23 +1,14 @@
-version: "3.9"
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: media-postgres
+  mongo:
+    image: mongo:latest
+    container_name: media-mongo
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: media_pipeline
+      MONGO_INITDB_DATABASE: media_pipeline
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d media_pipeline"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - mongo_data:/data/db
 
   redis:
     image: redis:7-alpine
@@ -29,56 +20,86 @@ services:
     volumes:
       - redis_data:/data
 
-  api:
+  server:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: server/Dockerfile
     container_name: media-api
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
+      mongo:
+        condition: service_started
       redis:
         condition: service_started
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ./server/.env
+    environment:
+      - DATABASE_URL=mongodb://mongo:27017/media_pipeline?authSource=admin
+      - REDIS_HOST=redis
+      - NOTIFICATION_SERVICE_URL=http://notification:5005
     volumes:
-      - uploads:/app/uploads
-    command: sh -c "npx prisma migrate deploy && npm run start"
+      - ./server:/app/server
+      - /app/server/node_modules
 
   worker:
     build:
-      context: ./apps/worker
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: worker/Dockerfile
     container_name: media-worker
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
+      mongo:
+        condition: service_started
       redis:
         condition: service_started
     env_file:
-      - .env
+      - ./worker/.env
+    environment:
+      - DATABASE_URL=mongodb://mongo:27017/media_pipeline?authSource=admin
+      - REDIS_HOST=redis
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/worker/ai-image-pipeline-499705-ef60bce44cf2.json
     volumes:
-      - uploads:/app/uploads
-    command: npm run start
+      - ./worker:/app/worker
+      - /app/worker/node_modules
 
-  web:
+  notification:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-    container_name: media-web
+      context: ./
+      dockerfile: notification/Dockerfile
+    container_name: media-notification
     restart: unless-stopped
     depends_on:
-      - api
-    ports:
-      - "3000:3000"
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+    env_file:
+      - ./notification/.env
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      - DATABASE_URL=mongodb://mongo:27017/media_pipeline?authSource=admin
+      - REDIS_HOST=redis
+    volumes:
+      - ./notification:/app/notification
+      - /app/notification/node_modules
+
+  frontend:
+    build:
+      context: ./
+      dockerfile: frontend/Dockerfile
+    container_name: media-frontend
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
 
 volumes:
-  postgres_data:
+  mongo_data:
   redis_data:
-  uploads:

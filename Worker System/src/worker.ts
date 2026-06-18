@@ -1,14 +1,18 @@
-import { ImageProcessingWorker } from "./workers/ImageProcessingWorker";
+import { ImageProcessingWorker } from "./modules/job/job.worker";
 
-console.log("AI Processing Worker Microservice started and waiting for jobs...");
+const startWorker = async () => {
+  console.log("AI Processing Worker Microservice started and waiting for jobs...");
 
-const worker = new ImageProcessingWorker();
+  const worker = new ImageProcessingWorker();
 
-const gracefulShutdown = async (signal: string) => {
-  console.log(`Received ${signal}, closing worker gracefully...`);
-  await worker.close();
-  process.exit(0);
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`Received ${signal}, closing worker gracefully...`);
+    await worker.close();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 };
 
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+startWorker();
