@@ -82,3 +82,9 @@ This service requires the following API keys to function:
 3. Create a bucket to get your `R2_BUCKET_NAME`.
 4. Click on "Manage R2 API Tokens" and create a new token.
 5. Copy the Account ID (`R2_ACCOUNT_ID`), Access Key ID (`R2_ACCESS_KEY_ID`), and Secret Access Key (`R2_SECRET_ACCESS_KEY`).
+
+---
+
+## API Documentation
+
+For details about the BullMQ queue architecture, payload formats, and events, refer to the [API Documentation](api.md).

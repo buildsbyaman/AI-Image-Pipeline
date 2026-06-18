@@ -110,3 +110,9 @@ This service requires the following API key to function:
 2. Navigate to the API Keys section.
 3. Click "Create API Key".
 4. Copy the key and use it as `RESEND_API_KEY`.
+
+---
+
+## API Documentation
+
+For details about the queue payload schema and templates, refer to the [API Documentation](api.md).
