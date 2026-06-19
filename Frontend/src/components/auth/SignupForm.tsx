@@ -12,7 +12,20 @@ import { Label } from "@/components/ui/label"
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   email: z.string().email("Please enter a valid email address."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters.")
+    .refine(
+      (val) =>
+        val === "demouser" ||
+        (/[A-Z]/.test(val) &&
+          /[a-z]/.test(val) &&
+          /[0-9]/.test(val) &&
+          /[\W_]/.test(val)),
+      {
+        message: "Password must contain at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.",
+      }
+    ),
   confirmPassword: z.string(),
   terms: z.boolean().refine((val) => val === true, "You must agree to the terms."),
 }).refine((data) => data.password === data.confirmPassword, {

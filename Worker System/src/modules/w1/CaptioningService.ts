@@ -10,7 +10,7 @@ export class CaptioningService {
 
     const body = {
       model: MODEL,
-      max_tokens: 100,
+      max_tokens: 30,
       messages: [
         {
           role: "user",
@@ -21,7 +21,7 @@ export class CaptioningService {
             },
             {
               type: "text",
-              text: "Describe this image in one concise sentence. Output only the description.",
+              text: "Describe this image in a very short, crisp phrase of under 10 words. Output only the description.",
             },
           ],
         },

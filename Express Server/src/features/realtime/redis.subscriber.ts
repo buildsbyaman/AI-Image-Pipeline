@@ -11,6 +11,7 @@ class RedisSubscriber {
     this.subscriber = new Redis({
       host: env.REDIS_HOST || "localhost",
       port: (env.REDIS_PORT as number) || 6379,
+      password: env.REDIS_PASSWORD,
     });
 
     this.subscriber.on("connect", () => {

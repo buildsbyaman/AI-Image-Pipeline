@@ -83,8 +83,8 @@ export const createJob = async (req: AuthRequest, res: Response, next: NextFunct
       throw new BadRequestError("File key is required");
     }
 
-    // Verify the file actually exists in MongoDB metadata and belongs to the active user
-    const fileRecord = await File.findOne({ key: fileKey });
+    // Verify the file exists, belongs to the active user, and is fully uploaded (confirmed)
+    const fileRecord = await File.findOne({ key: fileKey, status: "confirmed" });
 
     if (!fileRecord || fileRecord.userId?.toString() !== userId) {
       throw new BadRequestError("Invalid file key or file not found");

@@ -1,22 +1,24 @@
 import { Router } from "express";
-import { authenticate } from "../auth/auth.middleware";
+import { authenticate, sseAuthenticate } from "../auth/auth.middleware";
 import { notificationProxy } from "./notification.proxy";
 import { sseService } from "./sse.service";
 
 const router = Router();
 
-router.get("/stream", authenticate, (req: any, res) => {
+router.get("/stream", sseAuthenticate, (req: any, res) => {
   const userId = req.user?.userId || req.user?.id;
   if (!userId) {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
 
+  const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
-    "Access-Control-Allow-Origin": "http://localhost:5173",
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Credentials": "true",
   });
   

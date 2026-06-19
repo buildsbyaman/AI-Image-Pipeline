@@ -1,6 +1,5 @@
-import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Plus, Menu, X, PanelLeftClose, LayoutDashboard } from "lucide-react"
+import { Plus, X, PanelLeftClose, LayoutDashboard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SidebarHistory } from "./SidebarHistory"
 import { SidebarFooter } from "./SidebarFooter"
@@ -10,36 +9,29 @@ import { useDashboard } from "@/context/DashboardContext"
 interface SidebarProps {
   isCollapsed: boolean
   onCollapse: () => void
+  isOpen: boolean
+  setIsOpen: (open: boolean) => void
 }
 
-export function Sidebar({ isCollapsed, onCollapse }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function Sidebar({ isCollapsed, onCollapse, isOpen, setIsOpen }: SidebarProps) {
   const { jobs, user } = useDashboard()
   const location = useLocation()
 
   const isDashboardActive = location.pathname === "/dashboard"
   const isUploadActive = location.pathname === "/upload"
 
-  const recentUploads = jobs.map((job) => ({
-    id: job.id,
-    label: job.caption || job.prompt || `Job ${job.id}`,
-    date: new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }))
-
-  const toggleSidebar = () => setIsOpen(!isOpen)
+  const recentUploads = jobs.map((job) => {
+    const rawLabel = job.caption || job.prompt || `Job ${job.id}`;
+    const label = rawLabel.length > 30 ? `${rawLabel.substring(0, 27)}...` : rawLabel;
+    return {
+      id: job.id,
+      label,
+      date: new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+  })
 
   return (
     <>
-      <button 
-        onClick={toggleSidebar}
-        className={cn(
-          "md:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100",
-          isOpen && "hidden"
-        )}
-      >
-        <Menu size={20} />
-      </button>
-
       {isOpen && (
         <div 
           className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"

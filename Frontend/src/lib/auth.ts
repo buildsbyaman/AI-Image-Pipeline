@@ -63,17 +63,16 @@ authApi.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const storedRefreshToken = localStorage.getItem("refreshToken");
+        // No body needed — the server reads the httpOnly refresh token cookie automatically
         const response = await axios.post(
           `${API_URL}/auth/refresh`,
-          { refreshToken: storedRefreshToken },
+          {},
           { withCredentials: true }
         );
 
         if (response.data.success) {
-          const { accessToken, refreshToken } = response.data.data;
+          const { accessToken } = response.data.data;
           localStorage.setItem("accessToken", accessToken);
-          localStorage.setItem("refreshToken", refreshToken);
 
           authApi.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
           processQueue(null, accessToken);
@@ -82,7 +81,6 @@ authApi.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
         window.dispatchEvent(new Event("auth-expired"));
         return Promise.reject(refreshError);
       } finally {

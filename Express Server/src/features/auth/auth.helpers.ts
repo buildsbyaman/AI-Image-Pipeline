@@ -47,8 +47,8 @@ const passwordSchema = z
     (val) =>
       val === "demouser" ||
       (/[A-Z]/.test(val) &&
-        /[a-z]/.test(val) &&
-        /[0-9]/.test(val) &&
+      /[a-z]/.test(val) &&
+      /[0-9]/.test(val) &&
         /[\W_]/.test(val)),
     {
       message:

@@ -8,6 +8,7 @@ import Redis from "ioredis";
 const redisPublisher = new Redis({
   host: env.REDIS_HOST || "localhost",
   port: (env.REDIS_PORT as number) || 6379,
+  password: env.REDIS_PASSWORD,
 });
 
 export interface PipelineEventPayload {
@@ -124,6 +125,7 @@ export const pipelineEventsWorker = new Worker(
     connection: {
       host: env.REDIS_HOST || "localhost",
       port: (env.REDIS_PORT as number) || 6379,
+      password: env.REDIS_PASSWORD,
     },
     concurrency: 5,
   }

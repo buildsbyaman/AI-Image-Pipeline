@@ -6,6 +6,8 @@ services:
     restart: unless-stopped
     command: mongod --quiet --setParameter logComponentVerbosity='{"accessControl":{"verbosity":-1}}'
     environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: XIH6tjO1yik_B0VzxDc9ewchoqEemUDb
       MONGO_INITDB_DATABASE: aiimagepipeline
     ports:
       - "27017:27017"
@@ -18,7 +20,7 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass XIH6tjO1yik_B0VzxDc9ewchoqEemUDb
     volumes:
       - redis_data:/data
 
@@ -26,7 +28,7 @@ services:
     init: true
     build:
       context: ./
-      dockerfile: Express-Server/Dockerfile
+      dockerfile: Express Server/Dockerfile
     container_name: express-server
     restart: unless-stopped
     depends_on:
@@ -37,14 +39,15 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./Express-Server/.env
+      - ./Express Server/.env
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/aiimagepipeline?authSource=admin
+      - DATABASE_URL=mongodb://admin:XIH6tjO1yik_B0VzxDc9ewchoqEemUDb@mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
+      - REDIS_PASSWORD=XIH6tjO1yik_B0VzxDc9ewchoqEemUDb
       - NOTIFICATION_SERVICE_URL=http://notification:5005
     volumes:
-      - ./Express-Server:/app/Express-Server
-      - /app/Express-Server/node_modules
+      - ./Express Server:/app/Express Server
+      - /app/Express Server/node_modules
 
   worker:
     init: true
@@ -61,8 +64,9 @@ services:
     env_file:
       - ./Worker System/.env
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/aiimagepipeline?authSource=admin
+      - DATABASE_URL=mongodb://admin:XIH6tjO1yik_B0VzxDc9ewchoqEemUDb@mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
+      - REDIS_PASSWORD=XIH6tjO1yik_B0VzxDc9ewchoqEemUDb
       - GOOGLE_APPLICATION_CREDENTIALS=/app/Worker System/ai-image-pipeline.json
     volumes:
       - ./Worker System:/app/Worker System
@@ -83,8 +87,9 @@ services:
     env_file:
       - ./Email System/.env
     environment:
-      - DATABASE_URL=mongodb://mongo:27017/aiimagepipeline?authSource=admin
+      - DATABASE_URL=mongodb://admin:XIH6tjO1yik_B0VzxDc9ewchoqEemUDb@mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
+      - REDIS_PASSWORD=XIH6tjO1yik_B0VzxDc9ewchoqEemUDb
     volumes:
       - ./Email System:/app/Email System
       - /app/Email System/node_modules

@@ -19,7 +19,9 @@ export const renderTemplate = (
   const filePath = path.join(__dirname, 'templates', `${templateName}.${type}`);
   
   if (!fs.existsSync(filePath)) {
-    throw new Error(`Template ${templateName}.${type} not found at ${filePath}`);
+    // Log full path internally for debugging, but don't expose it externally
+    console.error(`[TemplateEngine] Template not found at: ${filePath}`);
+    throw new Error(`Email template '${templateName}.${type}' not found`);
   }
 
   let content = fs.readFileSync(filePath, 'utf-8');

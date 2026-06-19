@@ -30,7 +30,7 @@ export class AuthController {
         createResponse(true, "Account created successfully", {
           user: result.user,
           accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
+          // refreshToken intentionally omitted — stored securely in httpOnly cookie
         })
       );
     } catch (error) {
@@ -49,7 +49,7 @@ export class AuthController {
         createResponse(true, "Login successful", {
           user: result.user,
           accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
+          // refreshToken intentionally omitted — stored securely in httpOnly cookie
         })
       );
     } catch (error) {
@@ -87,7 +87,7 @@ export class AuthController {
       res.status(200).json(
         createResponse(true, "Token refreshed successfully", {
           accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
+          // refreshToken intentionally omitted — rotated token stored securely in httpOnly cookie
         })
       );
     } catch (error) {

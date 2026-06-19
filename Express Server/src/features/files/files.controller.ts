@@ -1,9 +1,9 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import { z } from "zod";
 import { storageService } from "./files.service";
 import { File } from "../../database";
 import { createResponse } from "../../shared/response";
-import { CustomError, BadRequestError } from "../../shared/errors";
+import { BadRequestError } from "../../shared/errors";
 import { logger } from "../../shared/logger";
 import { AuthRequest } from "../auth/auth.middleware";
 
@@ -26,14 +26,30 @@ const confirmSchema = z.object({
   size: z.number().positive("Size must be positive").max(5 * 1024 * 1024, "File exceeds 5MB limit"),
 });
 
-export const generatePresignedUrl = async (req: Request, res: Response, next: NextFunction) => {
+export const generatePresignedUrl = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new BadRequestError("User not authenticated");
+    }
+
     const validatedData = presignSchema.parse(req.body);
 
     const { key, uploadUrl, publicUrl } = await storageService.generatePresignedUrl(
       validatedData.fileName,
       validatedData.mimeType
     );
+
+    // Create a 'pending' file record tied to this user BEFORE returning the upload URL.
+    // This atomically binds the key to its owner — no other user can claim this key
+    // at /confirm time, and orphaned uploads (no confirm called) are identifiable.
+    await File.create({
+      userId,
+      key,
+      url: publicUrl,
+      mimeType: validatedData.mimeType,
+      status: "pending",
+    });
 
     res.status(200).json(
       createResponse(true, "Presigned URL generated successfully", {
@@ -56,38 +72,54 @@ export const confirmUpload = async (req: AuthRequest, res: Response, next: NextF
 
     const validatedData = confirmSchema.parse(req.body);
 
-    const publicUrl = storageService.getFileUrl(validatedData.key);
+    // Find the pending record created at presign time, scoped to this user.
+    // If the record doesn't exist for this userId, the key was either never
+    // presigned by this user, or another user is attempting to claim it.
+    const pendingFile = await File.findOne({ key: validatedData.key, userId, status: "pending" });
 
-    const fileRecord = await File.create({
-      userId,
-      key: validatedData.key,
-      url: publicUrl,
-      originalName: validatedData.originalName,
-      mimeType: validatedData.mimeType,
-      size: validatedData.size,
-    });
+    if (!pendingFile) {
+      throw new BadRequestError("Invalid key — no pending upload found for your account");
+    }
+
+    // Promote the record from pending → confirmed and fill in the real metadata
+    pendingFile.originalName = validatedData.originalName;
+    pendingFile.size = validatedData.size;
+    pendingFile.mimeType = validatedData.mimeType;
+    pendingFile.status = "confirmed";
+    await pendingFile.save();
 
     res.status(201).json(
-      createResponse(true, "File uploaded and recorded successfully", fileRecord)
+      createResponse(true, "File uploaded and recorded successfully", pendingFile)
     );
   } catch (error) {
     next(error);
   }
 };
 
-export const serveFile = async (req: Request, res: Response, next: NextFunction) => {
+
+export const serveFile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).send("Unauthorized");
+    }
+
     const key = req.params.key as string;
 
+    // Ownership check: ensure this file belongs to the authenticated user
     const fileRecord = await File.findOne({ key });
+
+    if (!fileRecord) {
+      return res.status(404).send("File not found");
+    }
+
+    if (fileRecord.userId?.toString() !== userId) {
+      return res.status(403).send("Forbidden: you do not own this file");
+    }
 
     const response = await storageService.getFile(key);
 
-    if (fileRecord) {
-      res.setHeader("Content-Type", fileRecord.mimeType);
-    } else if (response.ContentType) {
-      res.setHeader("Content-Type", response.ContentType);
-    }
+    res.setHeader("Content-Type", fileRecord.mimeType);
 
     if (response.ContentLength !== undefined) {
       res.setHeader("Content-Length", response.ContentLength);
@@ -106,3 +138,4 @@ export const serveFile = async (req: Request, res: Response, next: NextFunction)
     next(error);
   }
 };
+

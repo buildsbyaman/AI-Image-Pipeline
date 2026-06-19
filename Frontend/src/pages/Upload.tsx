@@ -59,7 +59,9 @@ export default function Upload() {
       toast.success('Image uploaded successfully');
       // Delay navigation slightly to let the user see the 100% completed status
       setTimeout(() => {
-        navigate(`/jobs/${response.jobId}`);
+        if (window.location.pathname === '/upload') {
+          navigate(`/jobs/${response.jobId}`);
+        }
       }, 300);
     } catch (error: any) {
       toast.error('Failed to upload image. Please check your connection and try again.');

@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Check, CheckCircle2 } from 'lucide-react';
-import { useNotifications, useUnreadCount, useMarkAsRead } from '../../hooks/useNotifications';
+import { Bell, Check, CheckCircle2, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useLocalNotifications } from '../../context/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  const { data: notifications = [] } = useNotifications();
-  const { data: unreadCount = 0 } = useUnreadCount();
-  const { mutate: markAsRead } = useMarkAsRead();
+  const { notifications, unreadCount, markAsRead } = useLocalNotifications();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,15 +65,30 @@ export function NotificationBell() {
                         <p className={`text-sm font-medium truncate ${!notification.read ? 'text-zinc-200' : 'text-zinc-400'}`}>
                           {notification.title}
                         </p>
-                        {!notification.read && (
-                          <button 
-                            onClick={() => markAsRead(notification.id)}
-                            className="p-1 text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 rounded"
-                            title="Mark as read"
-                          >
-                            <Check size={14} />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {notification.jobId && (
+                            <Link 
+                              to={`/jobs/${notification.jobId}`}
+                              onClick={() => {
+                                setIsOpen(false);
+                                markAsRead(notification.id);
+                              }}
+                              className="p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+                              title="View job details"
+                            >
+                              <Eye size={14} />
+                            </Link>
+                          )}
+                          {!notification.read && (
+                            <button 
+                              onClick={() => markAsRead(notification.id)}
+                              className="p-1 text-zinc-500 hover:text-blue-400 hover:bg-zinc-800 rounded transition-colors"
+                              title="Mark as read"
+                            >
+                              <Check size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-zinc-500 mt-1 line-clamp-2">
                         {notification.message}

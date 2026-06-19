@@ -39,23 +39,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (import.meta.env.DEV) {
         console.warn("User is not authenticated (No active session found).");
       }
-      // Attempt token refresh if available
+      // Attempt token refresh using the httpOnly cookie (sent automatically by the browser)
       try {
-        const storedRefreshToken = localStorage.getItem("refreshToken");
-        if (storedRefreshToken) {
-          const res = await authApi.post("/auth/refresh", { refreshToken: storedRefreshToken });
-          if (res.data.success) {
-            localStorage.setItem("accessToken", res.data.data.accessToken);
-            localStorage.setItem("refreshToken", res.data.data.refreshToken);
-            const meRes = await authApi.get("/auth/me");
-            if (meRes.data.success) {
-              setUser(meRes.data.data);
-            }
+        const res = await authApi.post("/auth/refresh");
+        if (res.data.success) {
+          localStorage.setItem("accessToken", res.data.data.accessToken);
+          const meRes = await authApi.get("/auth/me");
+          if (meRes.data.success) {
+            setUser(meRes.data.data);
           }
         }
       } catch (refreshErr) {
         localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
       }
     } finally {
       setIsLoading(false);
@@ -79,9 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authApi.post("/auth/login", { email, password });
       if (response.data.success) {
-        const { user, accessToken, refreshToken } = response.data.data;
+        const { user, accessToken } = response.data.data;
         localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", refreshToken);
+        // refreshToken is stored securely in the httpOnly cookie set by the server
         setUser(user);
       }
     } catch (error: any) {
@@ -103,9 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.data.success) {
-        const { user, accessToken, refreshToken } = response.data.data;
+        const { user, accessToken } = response.data.data;
         localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", refreshToken);
+        // refreshToken is stored securely in the httpOnly cookie set by the server
         setUser(user);
       }
     } catch (error: any) {
@@ -123,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } finally {
       localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
+      // refreshToken cookie is cleared by the server's clearCookie call on the /logout endpoint
       setUser(null);
       setIsLoading(false);
     }

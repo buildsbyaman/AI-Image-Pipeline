@@ -6,6 +6,7 @@ export const imageCaptioningQueue = new Queue("image-captioning", {
   connection: {
     host: env.REDIS_HOST,
     port: env.REDIS_PORT,
+    password: env.REDIS_PASSWORD,
   },
   defaultJobOptions: {
     attempts: 3, // Retry up to 3 times before failing

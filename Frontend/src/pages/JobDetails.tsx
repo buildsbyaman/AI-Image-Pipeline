@@ -39,7 +39,7 @@ export default function JobDetails() {
             <p className="text-zinc-500">Job not found.</p>
           </div>
         ) : (
-          <JobCard job={job} />
+          <JobCard job={job} hideViewButton />
         )}
       </div>
     </AppShell>

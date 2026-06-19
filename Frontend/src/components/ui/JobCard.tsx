@@ -6,14 +6,16 @@ import { useRetryJob, useDeleteJob } from "@/hooks/useJobs"
 import { useNavigate } from "react-router-dom"
 import { API_URL } from "@/lib/auth"
 import { cn } from "@/lib/utils"
+import { DeleteDialog } from "./DeleteDialog"
 
 interface JobCardProps {
   job: Job
   hideImage?: boolean
   hideTimeline?: boolean
+  hideViewButton?: boolean
 }
 
-export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCardProps) {
+export function JobCard({ job, hideImage = false, hideTimeline = false, hideViewButton = false }: JobCardProps) {
   const { mutate: retryJob, isPending: isRetrying } = useRetryJob()
   const { mutate: deleteJob, isPending: isDeleting } = useDeleteJob()
   const navigate = useNavigate()
@@ -32,34 +34,50 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
     }
   }, [job.status, job.updatedAt, job.createdAt])
 
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
   const handleDelete = () => {
-    if (confirm("Are you sure you want to delete this job and its processed files?")) {
-      deleteJob(job.id, {
-        onSuccess: () => {
-          navigate("/dashboard")
-        }
-      })
-    }
+    setIsDeleteDialogOpen(true)
   }
+
+  const handleConfirmDelete = () => {
+    deleteJob(job.id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false)
+        navigate("/dashboard")
+      },
+      onError: () => {
+        setIsDeleteDialogOpen(false)
+      }
+    })
+  }
+
 
   return (
     <div className={`w-full bg-[#111113] border ${job.flagged ? 'border-red-900/50 hover:border-red-800/50' : 'border-zinc-800/50 hover:border-zinc-700/50'} rounded-2xl overflow-hidden transition-colors`}>
-      <div className={`p-4 border-b flex items-center justify-between ${job.flagged ? 'border-red-900/30 bg-red-950/10' : 'border-zinc-900/20 bg-zinc-900/20'}`}>
-        <div className="flex items-center gap-3">
+      <div className={`p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${job.flagged ? 'border-red-900/30 bg-red-950/10' : 'border-zinc-900/20 bg-zinc-900/20'}`}>
+        <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
           <StatusBadge status={(job.status.toLowerCase() as ProcessingStatus) || "pending"} />
-          <span className="text-xs text-zinc-500 flex items-center gap-1">
-            <Clock size={12} />
-            {new Date(job.createdAt).toLocaleString()}
+          <span className="text-xs text-zinc-500 flex items-center gap-1 whitespace-nowrap">
+            <Clock size={12} className="flex-shrink-0" />
+            <span className="hidden sm:inline">
+              {new Date(job.createdAt).toLocaleString()}
+            </span>
+            <span className="sm:hidden">
+              {new Date(job.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}, {new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => navigate(`/jobs/${job.id}`)}
-            className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-md transition-colors flex items-center gap-2"
-          >
-            <Eye size={14} />
-            View
-          </button>
+        <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
+          {!hideViewButton && (
+            <button 
+              onClick={() => navigate(`/jobs/${job.id}`)}
+              className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-md transition-colors flex items-center gap-2"
+            >
+              <Eye size={14} />
+              View
+            </button>
+          )}
 
           {job.status === 'FAILED' && (
             <button 
@@ -305,6 +323,17 @@ export function JobCard({ job, hideImage = false, hideTimeline = false }: JobCar
           100% { left: 100%; }
         }
       `}</style>
+
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete job?"
+        description="Are you sure you want to delete this job and all of its processed files? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDeleting={isDeleting}
+      />
     </div>
   )
 }
