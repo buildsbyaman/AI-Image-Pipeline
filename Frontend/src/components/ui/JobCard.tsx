@@ -113,7 +113,7 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
               <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-zinc-950 border border-zinc-800/80 group/img flex items-center justify-center">
                 {job.fileKey && !imageError ? (
                   <img 
-                    src={`${API_URL}/files/${job.fileKey}`} 
+                    src={`${API_URL}/files/${job.fileKey}?token=${localStorage.getItem("accessToken") || ""}`} 
                     alt="Job source" 
                     className="h-full w-full object-cover transition-all duration-300 group-hover/img:scale-[1.03]"
                     loading="lazy"
@@ -207,12 +207,27 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
               )}
             </div>
             
-            <div className="relative flex items-start justify-between w-full max-w-3xl mx-auto px-4 mb-2">
-              {/* Background rail */}
-              <div className="absolute top-[18px] left-8 right-8 h-[2px] bg-zinc-800/60 z-0" />
-              {/* Filled gradient progress */}
+            <div className="relative flex flex-col sm:flex-row items-stretch sm:items-start justify-between w-full max-w-3xl mx-auto px-4 mb-2 gap-6 sm:gap-0">
+              {/* Vertical background rail (mobile) */}
+              <div className="absolute left-[34px] top-4 bottom-4 w-[2px] bg-zinc-800/60 z-0 sm:hidden" />
+              {/* Vertical progress (mobile) */}
               <div
-                className="absolute top-[18px] left-8 h-[2px] z-0 transition-[width] duration-700 ease-in-out"
+                className="absolute left-[34px] top-4 w-[2px] z-0 transition-[height] duration-700 ease-in-out sm:hidden"
+                style={{
+                  height: job.status === 'COMPLETED' ? 'calc(100% - 32px)'
+                       : job.status === 'W2'         ? 'calc(66.6% - 20px)'
+                       : job.status === 'W1'         ? 'calc(33.3% - 10px)'
+                       : job.status === 'PROCESSING' ? '12%'
+                       : '0%',
+                  background: 'linear-gradient(180deg, #6366f1, #818cf8)',
+                }}
+              />
+
+              {/* Horizontal background rail (desktop) */}
+              <div className="hidden sm:block absolute top-[18px] left-8 right-8 h-[2px] bg-zinc-800/60 z-0" />
+              {/* Horizontal progress (desktop) */}
+              <div
+                className="hidden sm:block absolute top-[18px] left-8 h-[2px] z-0 transition-[width] duration-700 ease-in-out"
                 style={{
                   width: job.status === 'COMPLETED' ? 'calc(100% - 64px)'
                        : job.status === 'W2'         ? 'calc(66.6% - 42px)'
@@ -222,10 +237,10 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
                   background: 'linear-gradient(90deg, #6366f1, #818cf8)',
                 }}
               />
-              {/* Scan shimmer overlay */}
+              {/* Scan shimmer overlay (desktop) */}
               {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) && (
                 <div
-                  className="absolute top-[18px] left-8 h-[2px] z-0 overflow-hidden pointer-events-none"
+                  className="hidden sm:block absolute top-[18px] left-8 h-[2px] z-0 overflow-hidden pointer-events-none"
                   style={{
                     width: job.status === 'COMPLETED' ? 'calc(100% - 64px)'
                          : job.status === 'W2'         ? 'calc(66.6% - 42px)'
@@ -266,10 +281,10 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
                 }
 
                 return (
-                  <div key={i} className="flex flex-col items-center relative z-10 w-20 sm:w-24">
+                  <div key={i} className="flex flex-row sm:flex-col items-center relative z-10 w-full sm:w-24 gap-4 sm:gap-0">
                     {/* Bubble */}
                     <div className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center border-2 text-xs font-bold transition-all duration-300 relative",
+                      "w-9 h-9 rounded-full flex items-center justify-center border-2 text-xs font-bold transition-all duration-300 relative flex-shrink-0",
                       state === 'completed' ? "bg-indigo-500 border-indigo-500 text-white shadow-[0_0_14px_rgba(99,102,241,0.5)]"
                       : state === 'active'  ? "bg-[#0e0e11] border-indigo-500 text-indigo-300"
                       : state === 'failed'  ? "bg-[#0e0e11] border-red-500 text-red-400"
@@ -284,9 +299,9 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
                       {state === 'completed' ? '✓' : i + 1}
                     </div>
                     {/* Labels */}
-                    <div className="text-center mt-2">
+                    <div className="text-left sm:text-center sm:mt-2">
                       <p className={cn(
-                        "text-[10px] font-semibold leading-tight",
+                        "text-xs sm:text-[10px] font-semibold leading-tight",
                         state === 'completed' ? "text-zinc-200"
                         : state === 'active'  ? "text-indigo-300"
                         : state === 'failed'  ? "text-red-400"
@@ -294,7 +309,7 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
                       )}>
                         {step.title}
                       </p>
-                      <p className="text-[9px] text-zinc-600 mt-0.5 whitespace-nowrap">
+                      <p className="text-[10px] sm:text-[9px] text-zinc-600 mt-0.5 whitespace-nowrap">
                         {state === 'failed' ? 'Failed' : step.desc}
                       </p>
                     </div>

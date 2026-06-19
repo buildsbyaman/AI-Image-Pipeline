@@ -21,7 +21,7 @@ export default function Dashboard() {
           <p className="text-zinc-400 mt-1">Your recent activity and pipeline metrics.</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, i) => (
             <div key={i} className="bg-[#111113] border border-zinc-800/80 rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-3">

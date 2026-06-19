@@ -1,8 +1,10 @@
 import { z } from "zod";
 import * as dotenv from "dotenv";
 
+import * as path from "path";
+
 // Load configuration parameters from the local .env file
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 // Schema definition for the microservice configuration.
 const envSchema = z.object({

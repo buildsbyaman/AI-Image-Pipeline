@@ -12,14 +12,12 @@ router.get("/stream", sseAuthenticate, (req: any, res) => {
     return;
   }
 
-  const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
-
+  // CORS headers (Access-Control-Allow-Origin, etc.) are handled by global cors middleware.
+  // Adding them manually here causes duplicate headers, which browsers (like Firefox) block.
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Credentials": "true",
   });
   
   res.write("retry: 10000\n\n");
