@@ -143,9 +143,35 @@ For detailed information about each microservice, please refer to their respecti
 
 ## Quick Start
 
-You can spin up the entire microservices architecture, including the database and message broker, using Docker Compose.
+You can run the services either locally (by manually installing their dependencies) or via Docker Compose.
 
-### Step 1: Setup Environment Variables
+### Local Development Setup
+
+To run the services locally without Docker, install the dependencies for each service individually:
+
+```bash
+# 1. Install dependencies for Express Server
+cd "Express Server" && npm install
+
+# 2. Install dependencies for Worker System
+cd "../Worker System" && npm install
+
+# 3. Install dependencies for Email System
+cd "../Email System" && npm install
+
+# 4. Install dependencies for Frontend
+cd ../Frontend && npm install
+```
+
+After installing dependencies, configure the `.env` files in each service directory and start each service using its local scripts (e.g., `npm run dev` or `npm run worker`).
+
+---
+
+### Running with Docker Compose
+
+You can also spin up the entire microservices architecture, including the database and message broker, using Docker Compose.
+
+#### Step 1: Setup Environment Variables
 
 Before starting the containers, you must manually create a `.env` file in each service directory (`Express Server`, `Worker System`, `Email System`, and `Frontend`). Ensure you configure your database URL, Redis host, and the necessary API keys as outlined below.
 
@@ -155,7 +181,7 @@ Before starting the containers, you must manually create a `.env` file in each s
 *   **Resend API Key (Email System)**: Sign in to the [Resend Dashboard](https://resend.com/), navigate to API Keys, create a new key, and save it as `RESEND_API_KEY`.
 *   **Cloudflare R2 Credentials (Express Server & Worker System)**: Sign in to the [Cloudflare Dashboard](https://dash.cloudflare.com/), go to R2, create a bucket (`R2_BUCKET_NAME`), and manage R2 API tokens to get your `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`.
 
-### Step 2: Start the Application
+#### Step 2: Start the Application
 
 Once the `.env` files are configured, build and run the services in detached mode:
 
@@ -163,7 +189,7 @@ Once the `.env` files are configured, build and run the services in detached mod
 docker compose up --build -d
 ```
 
-### Step 3: Accessing the Services
+#### Step 3: Accessing the Services
 
 After a successful startup, the services will be available at the following local endpoints:
 
@@ -172,7 +198,7 @@ After a successful startup, the services will be available at the following loca
 *   **MongoDB**: `localhost:27017`
 *   **Redis**: `localhost:6379`
 
-### Stopping the Application
+#### Stopping the Application
 
 To safely shut down the containers without deleting your database and redis volumes:
 
@@ -180,7 +206,7 @@ To safely shut down the containers without deleting your database and redis volu
 docker compose down
 ```
 
-To shut down and wipe all data volumes (useful for a clean reset):
+To shut down and wipe all data volumes (useful for a clean reset, which is necessary if you need to reinitialize MongoDB credentials):
 
 ```bash
 docker compose down -v

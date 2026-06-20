@@ -27,8 +27,8 @@ services:
   server:
     init: true
     build:
-      context: ./
-      dockerfile: Express Server/Dockerfile
+      context: "./Express Server"
+      dockerfile: Dockerfile
     container_name: express-server
     restart: unless-stopped
     depends_on:
@@ -39,21 +39,21 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./Express Server/.env
+      - "./Express Server/.env"
     environment:
       - DATABASE_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - NOTIFICATION_SERVICE_URL=http://notification:5005
     volumes:
-      - ./Express Server:/app/Express Server
-      - /app/Express Server/node_modules
+      - "./Express Server:/app"
+      - /app/node_modules
 
   worker:
     init: true
     build:
-      context: ./
-      dockerfile: Worker System/Dockerfile
+      context: "./Worker System"
+      dockerfile: Dockerfile
     container_name: worker
     restart: unless-stopped
     depends_on:
@@ -62,21 +62,21 @@ services:
       redis:
         condition: service_started
     env_file:
-      - ./Worker System/.env
+      - "./Worker System/.env"
     environment:
       - DATABASE_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/Worker System/ai-image-pipeline.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/ai-image-pipeline.json
     volumes:
-      - ./Worker System:/app/Worker System
-      - /app/Worker System/node_modules
+      - "./Worker System:/app"
+      - /app/node_modules
 
   notification:
     init: true
     build:
-      context: ./
-      dockerfile: Email System/Dockerfile
+      context: "./Email System"
+      dockerfile: Dockerfile
     container_name: notification
     restart: unless-stopped
     depends_on:
@@ -85,20 +85,20 @@ services:
       redis:
         condition: service_started
     env_file:
-      - ./Email System/.env
+      - "./Email System/.env"
     environment:
       - DATABASE_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/aiimagepipeline?authSource=admin
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
-      - ./Email System:/app/Email System
-      - /app/Email System/node_modules
+      - "./Email System:/app"
+      - /app/node_modules
 
   frontend:
     init: true
     build:
-      context: ./
-      dockerfile: Frontend/Dockerfile
+      context: "./Frontend"
+      dockerfile: Dockerfile
     container_name: frontend
     restart: unless-stopped
     depends_on:
@@ -106,10 +106,10 @@ services:
     ports:
       - "5173:5173"
     env_file:
-      - ./Frontend/.env
+      - "./Frontend/.env"
     volumes:
-      - ./Frontend:/app/Frontend
-      - /app/Frontend/node_modules
+      - "./Frontend:/app"
+      - /app/node_modules
 
 volumes:
   mongo_data:
