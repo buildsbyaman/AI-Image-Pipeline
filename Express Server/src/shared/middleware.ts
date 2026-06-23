@@ -8,6 +8,8 @@ import { ZodError } from "zod";
 import { CustomError } from "./errors";
 import { createResponse } from "./response";
 import { logger } from "./logger";
+import { AuthRequest } from "../features/auth/auth.middleware";
+import { env } from "../config";
 
 export const setupMiddlewares = (app: Application) => {
   const morganFormat = process.env.NODE_ENV !== "production" ? "dev" : "combined";
@@ -78,3 +80,22 @@ export const errorHandler = (
     .status(500)
     .json(createResponse(false, "Internal Server Error"));
 };
+
+export const userRateLimiter = rateLimit({
+  windowMs: env.USER_RATE_LIMIT_WINDOW_MS,
+  max: env.USER_RATE_LIMIT_MAX,
+  keyGenerator: (req: AuthRequest) => {
+    // Authenticated user ID, falling back to IP if not authenticated
+    return req.user?.id || req.ip || "";
+  },
+  validate: false,
+  handler: (req: Request, res: Response, next: NextFunction, options) => {
+    res.status(options.statusCode).json(
+      createResponse(false, "Too many requests from this user, please try again later.")
+    );
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+

@@ -21,10 +21,12 @@ It supports enterprise-grade patterns including JWT-based authentication, MongoD
 
 ## Key Features
 
-*   **Decoupled AI Processing Pipeline**: A three-stage sequential background worker architecture utilizing **OpenAI (`gpt-4o-mini`)** for Image Captioning, Label Detection, and Safety Moderation.
+*   **Decoupled AI Processing Pipeline**: A three-stage sequential background worker architecture utilizing **OpenAI (`gpt-4o-mini`)** for Content Safety Moderation (W1), Image Captioning (W2), and Label Detection (W3). If an image is flagged, subsequent AI stages are bypassed immediately to save API cost.
 *   **Real-Time Notification Gateway**: Socket.IO integration pushes status updates directly to authenticated clients in real-time as background jobs progress.
+*   **Granular Rate Limiting**: Features global IP-based rate limits combined with user-based rate limiting (100 req / 15 mins) on all authenticated endpoints to prevent API abuse.
+
 *   **Database-Free Microservices**: Both the AI Worker and Email System operate independently of the main database, coordinating exclusively via Redis queues (BullMQ) and events (`pipeline-events`).
-*   **Cloudflare R2 Integration**: Direct-to-R2 presigned file uploads securely transfer massive payloads without bottlenecking the backend server.
+*   **Cloudflare R2 Integration**: Direct-to-R2 presigned file uploads securely transfer massive payloads without bottlenecking the backend server. A Cloudflare Worker validates the file payload just before the write to R2, ensuring the upload only succeeds if it passes the same validation rules implemented on the frontend.
 *   **Robust Email System**: Standalone asynchronous email notification microservice built on BullMQ, Redis, and Resend with custom HTML templating.
 *   **Advanced Security & Authentication**: Production-ready JWT auth featuring Access/Refresh token rotation, secure HTTP-only cookies, password hashing (bcrypt), and Socket.IO handshake validation.
 *   **Memory & Storage Optimization**: Intelligent local caching (`/tmp` writes) in the worker system prevents redundant object storage downloads, managed by automated garbage-collection sweepers.
@@ -65,10 +67,12 @@ The project is divided into four main independent services. For a detailed techn
 │   └── readme.md            # Notification system documentation
 │
 └── Frontend/                # React Vite SPA
-    ├── src/
-    │   ├── components/      # UI components (Tailwind)
-    │   ├── pages/           # Application views
-    │   └── lib/             # API client configurations
+│   ├── src/
+│   │   ├── components/      # UI components (Tailwind)
+│   │   ├── pages/           # Application views
+│   │   └── lib/             # API client configurations
+│
+├── File Validation Worker.js  # Cloudflare Worker source — deployed to intercept R2 uploads
 ```
 
 ### Real-Time Notification Flow
@@ -126,6 +130,7 @@ graph TD
 *   **Token Storage**: Refresh tokens are isolated in HTTP-only, secure cookies. Short-lived access tokens reside in memory.
 *   **Socket Handshake Verification**: Socket.IO connections actively reject connections lacking a valid, signed JWT access token.
 *   **Direct Upload Security**: Clients must request cryptographically signed URLs (time-limited) to interact with Cloudflare R2, ensuring malicious payloads bypass backend servers entirely.
+*   **Cloudflare Worker Validation**: Enforces server-side type and integrity validation rules via a Cloudflare Worker positioned immediately before R2 writes, mirroring frontend constraints for a secure upload pipeline.
 *   **Error Sanitization**: Global error handlers scrub stack traces before responses reach clients in production.
 
 ---
@@ -138,6 +143,22 @@ For detailed information about each microservice, please refer to their respecti
 *   [Worker System Documentation](file:///Users/aman/Desktop/Projects/AI%20Image%20Pipeline/Worker%20System/readme.md)
 *   [Email System Documentation](file:///Users/aman/Desktop/Projects/AI%20Image%20Pipeline/Email%20System/readme.md)
 *   [Frontend Documentation](file:///Users/aman/Desktop/Projects/AI%20Image%20Pipeline/Frontend/readme.md)
+
+---
+
+## Cloudflare Worker
+
+`File Validation Worker.js` is a **production Cloudflare Worker** deployed in front of Cloudflare R2. It intercepts every presigned PUT upload and validates it before the object is written to storage — enforcing the same rules as the frontend as a server-side guarantee.
+
+**Validation performed on every upload:**
+
+| Check | Detail |
+|-------|--------|
+| MIME type | Only `image/jpeg`, `image/png`, `image/webp` are accepted |
+| File size | Rejected if `Content-Length` or actual body exceeds **5 MB** |
+| Magic bytes | First bytes of the payload must match the declared `Content-Type` (prevents spoofing) |
+
+Valid requests are forwarded to R2 transparently. Invalid requests receive a structured `400 JSON` error before touching storage.
 
 ---
 

@@ -158,12 +158,12 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
           <div className="space-y-4">
             <div>
               <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Safety Status</span>
-              {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) ? (
+              {['PENDING', 'PROCESSING'].includes(job.status) ? (
                  <div className="flex items-center gap-2 mt-1">
                   <div className="w-4 h-4 border-2 border-zinc-600 border-t-indigo-400 rounded-full animate-spin" />
                   <span className="text-sm text-zinc-400">Analyzing…</span>
                 </div>
-              ) : job.status === 'FAILED' ? (
+              ) : job.status === 'FAILED' && job.flagged === undefined ? (
                 <div className="mt-2 p-3 bg-red-950/20 border border-red-950/40 rounded-lg">
                   <div className="flex items-center gap-2 text-red-400">
                     <AlertTriangle size={16} />
@@ -214,12 +214,13 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
               <div
                 className="absolute left-[34px] top-4 w-[2px] z-0 transition-[height] duration-700 ease-in-out sm:hidden"
                 style={{
-                  height: job.status === 'COMPLETED' ? 'calc(100% - 32px)'
+                  height: job.flagged           ? 'calc(33.3% - 10px)'
+                       : job.status === 'COMPLETED' ? 'calc(100% - 32px)'
                        : job.status === 'W2'         ? 'calc(66.6% - 20px)'
                        : job.status === 'W1'         ? 'calc(33.3% - 10px)'
                        : job.status === 'PROCESSING' ? '12%'
                        : '0%',
-                  background: 'linear-gradient(180deg, #6366f1, #818cf8)',
+                  background: job.flagged ? 'linear-gradient(180deg, #ef4444, #f87171)' : 'linear-gradient(180deg, #6366f1, #818cf8)',
                 }}
               />
 
@@ -229,16 +230,17 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
               <div
                 className="hidden sm:block absolute top-[18px] left-8 h-[2px] z-0 transition-[width] duration-700 ease-in-out"
                 style={{
-                  width: job.status === 'COMPLETED' ? 'calc(100% - 64px)'
+                  width: job.flagged           ? 'calc(33.3% - 21px)'
+                       : job.status === 'COMPLETED' ? 'calc(100% - 64px)'
                        : job.status === 'W2'         ? 'calc(66.6% - 42px)'
                        : job.status === 'W1'         ? 'calc(33.3% - 21px)'
                        : job.status === 'PROCESSING' ? '12%'
                        : '0%',
-                  background: 'linear-gradient(90deg, #6366f1, #818cf8)',
+                  background: job.flagged ? 'linear-gradient(90deg, #ef4444, #f87171)' : 'linear-gradient(90deg, #6366f1, #818cf8)',
                 }}
               />
               {/* Scan shimmer overlay (desktop) */}
-              {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) && (
+              {['PENDING', 'PROCESSING', 'W1', 'W2'].includes(job.status) && !job.flagged && (
                 <div
                   className="hidden sm:block absolute top-[18px] left-8 h-[2px] z-0 overflow-hidden pointer-events-none"
                   style={{
@@ -261,14 +263,18 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
 
               {[
                 { title: "Submitted",  desc: "Pipeline triggered" },
-                { title: "Worker 1",   desc: "Image Captioning"   },
-                { title: "Worker 2",   desc: "Label Detection"    },
-                { title: "Worker 3",   desc: "Safety Check"       },
+                { title: "Worker 1",   desc: "Safety Check"       },
+                { title: "Worker 2",   desc: "Image Captioning"   },
+                { title: "Worker 3",   desc: "Label Detection"    },
               ].map((step, i) => {
                 const s = job.status;
                 let state: 'completed' | 'active' | 'pending' | 'failed' = 'pending';
-                if (s === 'FAILED') {
-                  const lastCompletedStage: number = job.caption ? 1 : 0;
+                if (job.flagged) {
+                  if (i === 0) state = 'completed';
+                  else if (i === 1) state = 'failed';
+                  else state = 'pending';
+                } else if (s === 'FAILED') {
+                  const lastCompletedStage: number = job.caption ? 2 : (job.flagged === false ? 1 : 0);
                   if (i === 0) state = 'completed';
                   else if (i === 1) state = lastCompletedStage >= 1 ? 'completed' : 'failed';
                   else if (i === 2) state = lastCompletedStage >= 2 ? 'completed' : (lastCompletedStage === 1 ? 'failed' : 'pending');
@@ -287,7 +293,7 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
                       "w-9 h-9 rounded-full flex items-center justify-center border-2 text-xs font-bold transition-all duration-300 relative flex-shrink-0",
                       state === 'completed' ? "bg-indigo-500 border-indigo-500 text-white shadow-[0_0_14px_rgba(99,102,241,0.5)]"
                       : state === 'active'  ? "bg-[#0e0e11] border-indigo-500 text-indigo-300"
-                      : state === 'failed'  ? "bg-[#0e0e11] border-red-500 text-red-400"
+                      : state === 'failed'  ? "bg-red-500 border-red-500 text-white shadow-[0_0_14px_rgba(239,68,68,0.5)]"
                       : "bg-[#0e0e11] border-zinc-700 text-zinc-600"
                     )}>
                       {state === 'active' && (
@@ -296,7 +302,7 @@ export function JobCard({ job, hideImage = false, hideTimeline = false, hideView
                           <span className="absolute inset-[-5px] rounded-full border border-indigo-500/25 animate-pulse" />
                         </>
                       )}
-                      {state === 'completed' ? '✓' : i + 1}
+                      {state === 'failed' ? '✗' : (state === 'completed' ? '✓' : i + 1)}
                     </div>
                     {/* Labels */}
                     <div className="text-left sm:text-center sm:mt-2">

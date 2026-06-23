@@ -9,6 +9,7 @@ This Express backend serves as the core orchestrator for the application:
 - **Authentication**: JWT-based auth with Access/Refresh token rotation and secure HTTP-only cookies.
 - **File Uploads**: Generates secure Cloudflare R2 presigned URLs, enabling clients to bypass the server for heavy file uploads.
 - **Job Coordination**: Creates background jobs in MongoDB and initiates the decoupled AI pipeline via BullMQ and Redis.
+- **Rate Limiting**: Enforces global IP-based rate limiting as well as granular user-based rate limiting (100 req / 15 mins) on all authenticated endpoints.
 - **Real-Time Gateway**: Maintains authenticated Socket.IO connections to stream live updates of job progress back to frontend clients.
 
 For detailed API routes and WebSocket events, refer to the [API Documentation](api.md).

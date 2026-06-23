@@ -21,6 +21,8 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string(),
   R2_BUCKET_NAME: z.string(),
   NOTIFICATION_SERVICE_URL: z.string().default("http://localhost:5005"),
+  USER_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
+  USER_RATE_LIMIT_MAX: z.coerce.number().default(100),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

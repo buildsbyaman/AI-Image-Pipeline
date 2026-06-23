@@ -97,11 +97,19 @@ export interface SafetyCheckPayload {
   fileKey: string;
   email?: string;
   firstName?: string;
-  caption: string;
-  labels: string[];
 }
 
 // Global queue instances for pushing tasks sequentially down the pipeline
+export const imageCaptioningQueue = new Queue("image-captioning", {
+  connection: connection as any,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: true,
+    removeOnFail: false,
+  },
+});
+
 export const labelDetectionQueue = new Queue("label-detection", {
   connection: connection as any,
   defaultJobOptions: {
@@ -122,179 +130,9 @@ export const safetyCheckQueue = new Queue("safety-check", {
   },
 });
 
-// Stage 1 (Captioning Worker):
-// Downloads file from Cloudflare R2, writes local cache, runs caption logic, and hands off to Stage 2.
-export class ImageCaptioningWorker {
-  private worker: Worker;
-  private storageService: StorageService;
-  private w1Processor: W1Processor;
-  private notificationPublisher: NotificationPublisher;
-
-  constructor() {
-    this.storageService = new StorageService();
-    this.w1Processor = new W1Processor();
-    this.notificationPublisher = new NotificationPublisher();
-
-    this.worker = new Worker(
-      "image-captioning",
-      async (job: Job<ImageCaptioningPayload>) => {
-        await this.processJob(job.data);
-      },
-      {
-        connection: connection as any,
-        concurrency: 5,
-      }
-    );
-
-    this.worker.on("completed", (job) => {
-      logger.info(`[Stage 1] Job ${job.id} captioning completed!`);
-    });
-
-    this.worker.on("failed", async (job, err) => {
-      logger.error(`[Stage 1] Job ${job?.id} captioning failed: ${err.message}`);
-      // Publish failure immediately for non-retryable errors (e.g., UnrecoverableError)
-      // or once all retry attempts have been exhausted.
-      const isPermanent =
-        err instanceof UnrecoverableError ||
-        (job !== undefined && job.attemptsMade >= (job.opts.attempts || 3));
-      if (isPermanent && job) {
-        logger.info(`[Stage 1] Job ${job.id} failed permanently. Cleaning up...`);
-        await deleteLocalCache(job.data.jobId);
-        await this.publishFailure(job.data.jobId, job.data.userId, err);
-      }
-    });
-  }
-
-  private async processJob(payload: ImageCaptioningPayload) {
-    const { jobId, userId, fileKey } = payload;
-    try {
-      logger.info(`[Stage 1] Downloading file from Cloudflare R2 for Job ${jobId}...`);
-      const imageBuffer = await this.storageService.downloadImageBuffer(fileKey);
-
-      logger.info(`[Stage 1] Caching image locally for Job ${jobId}...`);
-      await writeLocalCache(jobId, imageBuffer);
-
-      logger.info(`[Stage 1] Generating image caption via Hugging Face...`);
-      const caption = await this.w1Processor.process(jobId, userId, imageBuffer);
-
-      logger.info(`[Stage 1] Enqueuing to label-detection stage...`);
-      await labelDetectionQueue.add("label-detection-job", {
-        ...payload,
-        caption,
-      });
-    } catch (error: any) {
-      logger.error(`[Stage 1] Process error on Job ${jobId}:`, error);
-      throw error; // Let BullMQ trigger retry loops
-    }
-  }
-
-  private async publishFailure(jobId: string, userId: string, error: any) {
-    try {
-      await this.notificationPublisher.publish({
-        type: "FAILED",
-        userId,
-        jobId,
-        error: error.message || "Stage 1: Image Captioning failed permanently",
-      });
-    } catch (pubError) {
-      logger.error(pubError as Error, `Failed to publish failure event for job ${jobId}`);
-    }
-  }
-
-  public close() {
-    return this.worker.close();
-  }
-}
-
-// Stage 2 (Label Detection Worker):
-// Reads file from local cache (downloads from R2 on cache miss), runs label logic, and hands off to Stage 3.
-export class LabelDetectionWorker {
-  private worker: Worker;
-  private storageService: StorageService;
-  private w2Processor: W2Processor;
-  private notificationPublisher: NotificationPublisher;
-
-  constructor() {
-    this.storageService = new StorageService();
-    this.w2Processor = new W2Processor();
-    this.notificationPublisher = new NotificationPublisher();
-
-    this.worker = new Worker(
-      "label-detection",
-      async (job: Job<LabelDetectionPayload>) => {
-        await this.processJob(job.data);
-      },
-      {
-        connection: connection as any,
-        concurrency: 5,
-      }
-    );
-
-    this.worker.on("completed", (job) => {
-      logger.info(`[Stage 2] Job ${job.id} label detection completed!`);
-    });
-
-    this.worker.on("failed", async (job, err) => {
-      logger.error(`[Stage 2] Job ${job?.id} label detection failed: ${err.message}`);
-      // Publish failure immediately for non-retryable errors, or once all retries are exhausted.
-      const isPermanent =
-        err instanceof UnrecoverableError ||
-        (job !== undefined && job.attemptsMade >= (job.opts.attempts || 3));
-      if (isPermanent && job) {
-        logger.info(`[Stage 2] Job ${job.id} failed permanently. Cleaning up...`);
-        await deleteLocalCache(job.data.jobId);
-        await this.publishFailure(job.data.jobId, job.data.userId, err);
-      }
-    });
-  }
-
-  private async processJob(payload: LabelDetectionPayload) {
-    const { jobId, fileKey } = payload;
-    try {
-      logger.info(`[Stage 2] Loading image buffer for Job ${jobId}...`);
-      let imageBuffer = await readLocalCache(jobId);
-      
-      // Fallback: Fetch file from R2 if the cache file is lost due to container restarts or scale-out
-      if (!imageBuffer) {
-        logger.info(`[Stage 2] Local cache miss on Job ${jobId}. Fetching from Cloudflare R2...`);
-        imageBuffer = await this.storageService.downloadImageBuffer(fileKey);
-        await writeLocalCache(jobId, imageBuffer);
-      }
-
-      logger.info(`[Stage 2] Executing object detection via GCP Vision API...`);
-      const labels = await this.w2Processor.process(jobId, payload.userId, imageBuffer);
-
-      logger.info(`[Stage 2] Enqueuing to safety-check stage...`);
-      await safetyCheckQueue.add("safety-check-job", {
-        ...payload,
-        labels,
-      });
-    } catch (error: any) {
-      logger.error(`[Stage 2] Process error on Job ${jobId}:`, error);
-      throw error; // Let BullMQ trigger retry loops
-    }
-  }
-
-  private async publishFailure(jobId: string, userId: string, error: any) {
-    try {
-      await this.notificationPublisher.publish({
-        type: "FAILED",
-        userId,
-        jobId,
-        error: error.message || "Stage 2: Label Detection failed permanently",
-      });
-    } catch (pubError) {
-      logger.error(pubError as Error, `Failed to publish failure event for job ${jobId}`);
-    }
-  }
-
-  public close() {
-    return this.worker.close();
-  }
-}
-
-// Stage 3 (Safety Check Worker):
-// Reads file from cache, screens content moderation, schedules emails, and performs cache cleanup.
+// Stage 1 (Safety Check Worker):
+// Downloads file from Cloudflare R2, writes local cache, runs safety checks.
+// If safe, enqueues to Stage 2 (Captioning). Otherwise, cleans up and notifies.
 export class SafetyCheckWorker {
   private worker: Worker;
   private storageService: StorageService;
@@ -318,41 +156,208 @@ export class SafetyCheckWorker {
     );
 
     this.worker.on("completed", (job) => {
-      logger.info(`[Stage 3] Job ${job.id} safety check completed!`);
+      logger.info(`[Stage 1] Job ${job.id} safety check completed!`);
     });
 
     this.worker.on("failed", async (job, err) => {
-      logger.error(`[Stage 3] Job ${job?.id} safety check failed: ${err.message}`);
-      // Publish failure immediately for non-retryable errors, or once all retries are exhausted.
+      logger.error(`[Stage 1] Job ${job?.id} safety check failed: ${err.message}`);
       const isPermanent =
         err instanceof UnrecoverableError ||
         (job !== undefined && job.attemptsMade >= (job.opts.attempts || 3));
       if (isPermanent && job) {
-        logger.info(`[Stage 3] Job ${job.id} failed permanently. Notifying...`);
+        logger.info(`[Stage 1] Job ${job.id} failed permanently. Cleaning up...`);
+        await deleteLocalCache(job.data.jobId);
         await this.publishFailure(job.data.jobId, job.data.userId, err);
       }
     });
   }
 
   private async processJob(payload: SafetyCheckPayload) {
-    const { jobId, userId, fileKey, caption, labels, email, firstName } = payload;
+    const { jobId, userId, fileKey, email, firstName } = payload;
+    try {
+      logger.info(`[Stage 1] Downloading file from Cloudflare R2 for Job ${jobId}...`);
+      const imageBuffer = await this.storageService.downloadImageBuffer(fileKey);
+
+      logger.info(`[Stage 1] Caching image locally for Job ${jobId}...`);
+      await writeLocalCache(jobId, imageBuffer);
+
+      logger.info(`[Stage 1] Executing safe search moderation checks...`);
+      const safetyResult = await this.w3Processor.process(jobId, userId, imageBuffer, email, firstName);
+
+      if (!safetyResult.flagged) {
+        logger.info(`[Stage 1] Image is safe. Enqueuing to image-captioning stage...`);
+        await imageCaptioningQueue.add("image-captioning-job", payload);
+      } else {
+        logger.info(`[Stage 1] Image is flagged. Ending pipeline and clearing local cache...`);
+        await deleteLocalCache(jobId);
+      }
+    } catch (error: any) {
+      logger.error(`[Stage 1] Process error on Job ${jobId}:`, error);
+      throw error;
+    }
+  }
+
+  private async publishFailure(jobId: string, userId: string, error: any) {
+    try {
+      await this.notificationPublisher.publish({
+        type: "FAILED",
+        userId,
+        jobId,
+        error: error.message || "Stage 1: Safety Check failed permanently",
+      });
+    } catch (pubError) {
+      logger.error(pubError as Error, `Failed to publish failure event for job ${jobId}`);
+    }
+  }
+
+  public close() {
+    return this.worker.close();
+  }
+}
+
+// Stage 2 (Captioning Worker):
+// Reads file from local cache, runs caption logic, and hands off to Stage 3 (Labels).
+export class ImageCaptioningWorker {
+  private worker: Worker;
+  private storageService: StorageService;
+  private w1Processor: W1Processor;
+  private notificationPublisher: NotificationPublisher;
+
+  constructor() {
+    this.storageService = new StorageService();
+    this.w1Processor = new W1Processor();
+    this.notificationPublisher = new NotificationPublisher();
+
+    this.worker = new Worker(
+      "image-captioning",
+      async (job: Job<ImageCaptioningPayload>) => {
+        await this.processJob(job.data);
+      },
+      {
+        connection: connection as any,
+        concurrency: 5,
+      }
+    );
+
+    this.worker.on("completed", (job) => {
+      logger.info(`[Stage 2] Job ${job.id} captioning completed!`);
+    });
+
+    this.worker.on("failed", async (job, err) => {
+      logger.error(`[Stage 2] Job ${job?.id} captioning failed: ${err.message}`);
+      const isPermanent =
+        err instanceof UnrecoverableError ||
+        (job !== undefined && job.attemptsMade >= (job.opts.attempts || 3));
+      if (isPermanent && job) {
+        logger.info(`[Stage 2] Job ${job.id} failed permanently. Cleaning up...`);
+        await deleteLocalCache(job.data.jobId);
+        await this.publishFailure(job.data.jobId, job.data.userId, err);
+      }
+    });
+  }
+
+  private async processJob(payload: ImageCaptioningPayload) {
+    const { jobId, userId, fileKey } = payload;
+    try {
+      logger.info(`[Stage 2] Loading image buffer for Job ${jobId}...`);
+      let imageBuffer = await readLocalCache(jobId);
+      
+      if (!imageBuffer) {
+        logger.info(`[Stage 2] Local cache miss on Job ${jobId}. Fetching from Cloudflare R2...`);
+        imageBuffer = await this.storageService.downloadImageBuffer(fileKey);
+        await writeLocalCache(jobId, imageBuffer);
+      }
+
+      logger.info(`[Stage 2] Generating image caption...`);
+      const caption = await this.w1Processor.process(jobId, userId, imageBuffer);
+
+      logger.info(`[Stage 2] Enqueuing to label-detection stage...`);
+      await labelDetectionQueue.add("label-detection-job", {
+        ...payload,
+        caption,
+      });
+    } catch (error: any) {
+      logger.error(`[Stage 2] Process error on Job ${jobId}:`, error);
+      throw error;
+    }
+  }
+
+  private async publishFailure(jobId: string, userId: string, error: any) {
+    try {
+      await this.notificationPublisher.publish({
+        type: "FAILED",
+        userId,
+        jobId,
+        error: error.message || "Stage 2: Image Captioning failed permanently",
+      });
+    } catch (pubError) {
+      logger.error(pubError as Error, `Failed to publish failure event for job ${jobId}`);
+    }
+  }
+
+  public close() {
+    return this.worker.close();
+  }
+}
+
+// Stage 3 (Label Detection Worker):
+// Reads file from cache, runs object detection, sends final notifications, and cleans up cache.
+export class LabelDetectionWorker {
+  private worker: Worker;
+  private storageService: StorageService;
+  private w2Processor: W2Processor;
+  private notificationPublisher: NotificationPublisher;
+
+  constructor() {
+    this.storageService = new StorageService();
+    this.w2Processor = new W2Processor();
+    this.notificationPublisher = new NotificationPublisher();
+
+    this.worker = new Worker(
+      "label-detection",
+      async (job: Job<LabelDetectionPayload>) => {
+        await this.processJob(job.data);
+      },
+      {
+        connection: connection as any,
+        concurrency: 5,
+      }
+    );
+
+    this.worker.on("completed", (job) => {
+      logger.info(`[Stage 3] Job ${job.id} label detection completed!`);
+    });
+
+    this.worker.on("failed", async (job, err) => {
+      logger.error(`[Stage 3] Job ${job?.id} label detection failed: ${err.message}`);
+      const isPermanent =
+        err instanceof UnrecoverableError ||
+        (job !== undefined && job.attemptsMade >= (job.opts.attempts || 3));
+      if (isPermanent && job) {
+        logger.info(`[Stage 3] Job ${job.id} failed permanently. Cleaning up...`);
+        await deleteLocalCache(job.data.jobId);
+        await this.publishFailure(job.data.jobId, job.data.userId, err);
+      }
+    });
+  }
+
+  private async processJob(payload: LabelDetectionPayload) {
+    const { jobId, userId, fileKey, email, firstName } = payload;
     try {
       logger.info(`[Stage 3] Loading image buffer for Job ${jobId}...`);
       let imageBuffer = await readLocalCache(jobId);
       
-      // Fallback: Fetch file from R2 if the cache file is missing
       if (!imageBuffer) {
         logger.info(`[Stage 3] Local cache miss on Job ${jobId}. Fetching from Cloudflare R2...`);
         imageBuffer = await this.storageService.downloadImageBuffer(fileKey);
       }
 
-      logger.info(`[Stage 3] Executing safe search moderation checks via GCP Vision API...`);
-      await this.w3Processor.process(jobId, userId, imageBuffer, caption, labels, email, firstName);
+      logger.info(`[Stage 3] Executing object detection...`);
+      await this.w2Processor.process(jobId, userId, imageBuffer, email, firstName);
     } catch (error: any) {
       logger.error(`[Stage 3] Process error on Job ${jobId}:`, error);
-      throw error; // Let BullMQ trigger retry loops
+      throw error;
     } finally {
-      // Terminal cleanup: Remove cache file to free up local disk space
       logger.info(`[Stage 3] Finalizing pipeline. Clearing local cache file for Job ${jobId}...`);
       await deleteLocalCache(jobId);
     }
@@ -364,7 +369,7 @@ export class SafetyCheckWorker {
         type: "FAILED",
         userId,
         jobId,
-        error: error.message || "Stage 3: Safety Check failed permanently",
+        error: error.message || "Stage 3: Label Detection failed permanently",
       });
     } catch (pubError) {
       logger.error(pubError as Error, `Failed to publish failure event for job ${jobId}`);

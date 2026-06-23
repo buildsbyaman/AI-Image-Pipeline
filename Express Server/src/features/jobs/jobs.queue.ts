@@ -1,8 +1,8 @@
 import { Queue } from "bullmq";
 import { env } from "../../config";
 
-// Instantiates the primary queue client for the entry stage (Stage W1: Image Captioning) of the AI pipeline
-export const imageCaptioningQueue = new Queue("image-captioning", {
+// Instantiates the primary queue client for the entry stage (Stage W1: Safety Check) of the AI pipeline
+export const safetyCheckQueue = new Queue("safety-check", {
   connection: {
     host: env.REDIS_HOST,
     port: env.REDIS_PORT,
@@ -18,3 +18,4 @@ export const imageCaptioningQueue = new Queue("image-captioning", {
     removeOnFail: false, // Keep failed jobs in Redis for logs and manual requeues
   },
 });
+

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate, sseAuthenticate } from "../auth/auth.middleware";
 import { notificationProxy } from "./notification.proxy";
 import { sseService } from "./sse.service";
+import { userRateLimiter } from "../../shared/middleware";
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.get("/stream", sseAuthenticate, (req: any, res) => {
   });
 });
 
-router.use("/", authenticate, notificationProxy);
+router.use("/", authenticate, userRateLimiter, notificationProxy);
+
 
 export default router;

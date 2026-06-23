@@ -32,12 +32,12 @@ export const pipelineEventsWorker = new Worker(
 
     try {
       if (type === "W1_COMPLETED") {
-        // Stage 1 (Captioning) completes: update job status and save generated caption
+        // Stage 1 (Safety Check) completes: update job status
         await JobModel.findByIdAndUpdate(jobId, { status: JobStatus.W1 });
 
         await Result.findOneAndUpdate(
           { jobId },
-          { caption },
+          { flagged: false },
           { upsert: true, new: true }
         );
 
@@ -48,17 +48,17 @@ export const pipelineEventsWorker = new Worker(
             event: "notification.created",
             userId,
             title: "Job Processing Update",
-            message: "Stage 1 (Image Captioning) Completed",
+            message: "Stage 1 (Content Safety Check) Completed",
             jobId,
           })
         );
       } else if (type === "W2_COMPLETED") {
-        // Stage 2 (Labels) completes: update job status and append labels
+        // Stage 2 (Captioning) completes: update job status and save generated caption
         await JobModel.findByIdAndUpdate(jobId, { status: JobStatus.W2 });
 
         await Result.findOneAndUpdate(
           { jobId },
-          { labels },
+          { caption },
           { upsert: true, new: true }
         );
 
@@ -68,7 +68,7 @@ export const pipelineEventsWorker = new Worker(
             event: "notification.created",
             userId,
             title: "Job Processing Update",
-            message: "Stage 2 (Label Detection) Completed",
+            message: "Stage 2 (Image Captioning) Completed",
             jobId,
           })
         );
@@ -78,14 +78,16 @@ export const pipelineEventsWorker = new Worker(
 
         await JobModel.findByIdAndUpdate(jobId, { status: JobStatus.COMPLETED });
 
+        const updateFields: any = { flagged: isFlagged };
+        if (isFlagged) {
+          updateFields.flaggedCategory = category;
+        } else {
+          updateFields.labels = labels;
+        }
+
         await Result.findOneAndUpdate(
           { jobId },
-          {
-            flagged: isFlagged,
-            flaggedCategory: category,
-            caption,
-            labels,
-          },
+          updateFields,
           { upsert: true, new: true }
         );
 

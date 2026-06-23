@@ -2,7 +2,7 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "../auth/auth.middleware";
 import { Job, File, Result } from "../../database";
 import { storageService } from "../files/files.service";
-import { imageCaptioningQueue } from "./jobs.queue";
+import { safetyCheckQueue } from "./jobs.queue";
 import { createResponse } from "../../shared/response";
 import { NotFoundError, BadRequestError } from "../../shared/errors";
 
@@ -97,8 +97,8 @@ export const createJob = async (req: AuthRequest, res: Response, next: NextFunct
       status: "PENDING",
     });
 
-    // Delegate execution by adding the job to the initial queue (Image Captioning)
-    await imageCaptioningQueue.add("image-captioning-job", {
+    // Delegate execution by adding the job to the initial queue (Safety Check)
+    await safetyCheckQueue.add("safety-check-job", {
       jobId: job.id,
       userId,
       fileKey,
@@ -141,8 +141,8 @@ export const retryJob = async (req: AuthRequest, res: Response, next: NextFuncti
     job.error = undefined;
     await job.save();
 
-    // Re-enqueue job to captioning queue
-    await imageCaptioningQueue.add("image-captioning-job", {
+    // Re-enqueue job to safety check queue
+    await safetyCheckQueue.add("safety-check-job", {
       jobId: job.id,
       userId,
       fileKey: job.fileKey,

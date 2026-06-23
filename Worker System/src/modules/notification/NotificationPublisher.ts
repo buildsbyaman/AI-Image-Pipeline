@@ -6,8 +6,8 @@ export interface SuccessNotificationPayload {
   type: "IMAGE_PROCESSED_SUCCESS";
   userId: string;
   jobId: string;
-  caption: string;
-  labels: string[];
+  caption?: string;
+  labels?: string[];
 }
 
 export interface FlaggedNotificationPayload {
@@ -15,22 +15,23 @@ export interface FlaggedNotificationPayload {
   userId: string;
   jobId: string;
   category: string;
-  caption: string;
-  labels: string[];
+  caption?: string;
+  labels?: string[];
 }
 
 export interface W1CompletedNotificationPayload {
   type: "W1_COMPLETED";
   userId: string;
   jobId: string;
-  caption: string;
+  caption?: string;
 }
 
 export interface W2CompletedNotificationPayload {
   type: "W2_COMPLETED";
   userId: string;
   jobId: string;
-  labels: string[];
+  labels?: string[];
+  caption?: string;
 }
 
 export interface FailedNotificationPayload {

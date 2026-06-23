@@ -17,7 +17,7 @@ export class W1Processor {
 
     // Publish event back to the Express Server to transition job state in the database and notify clients
     await this.notificationPublisher.publish({
-      type: "W1_COMPLETED",
+      type: "W2_COMPLETED",
       userId,
       jobId,
       caption,
