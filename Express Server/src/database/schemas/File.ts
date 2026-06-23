@@ -16,7 +16,7 @@ export interface IFile extends Document {
 }
 
 const FileSchema: Schema = new Schema({
-  key: { type: String, required: true, unique: true },
+  key: { type: String, required: true, index: true },
   url: { type: String, required: true },
   originalName: { type: String, required: false, default: '' },
   mimeType: { type: String, required: true },

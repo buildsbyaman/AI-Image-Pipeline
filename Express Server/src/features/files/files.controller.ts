@@ -145,14 +145,10 @@ export const serveFile = async (req: AuthRequest, res: Response, next: NextFunct
     const key = req.params.key as string;
 
     // Ownership check: ensure this file belongs to the authenticated user
-    const fileRecord = await File.findOne({ key });
+    const fileRecord = await File.findOne({ key, userId });
 
     if (!fileRecord) {
       return res.status(404).send("File not found");
-    }
-
-    if (fileRecord.userId?.toString() !== userId) {
-      return res.status(403).send("Forbidden: you do not own this file");
     }
 
     const response = await storageService.getFile(key);

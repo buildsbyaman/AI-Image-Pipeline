@@ -85,9 +85,9 @@ export const createJob = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     // Verify the file exists, belongs to the active user, and is fully uploaded (confirmed)
-    const fileRecord = await File.findOne({ key: fileKey, status: "confirmed" });
+    const fileRecord = await File.findOne({ key: fileKey, userId, status: "confirmed" });
 
-    if (!fileRecord || fileRecord.userId?.toString() !== userId) {
+    if (!fileRecord) {
       throw new BadRequestError("Invalid file key or file not found");
     }
 
@@ -217,8 +217,17 @@ export const deleteJob = async (req: AuthRequest, res: Response, next: NextFunct
     // Purge binary payload from R2 storage and database file metadata records
     if (job.fileKey) {
       try {
-        await storageService.deleteFile(job.fileKey);
-        await File.deleteMany({ key: job.fileKey });
+        // Delete only the file record belonging to this user
+        await File.deleteOne({ key: job.fileKey, userId });
+
+        // Check if any other user records still reference the same file key
+        const referencesCount = await File.countDocuments({ key: job.fileKey });
+        if (referencesCount === 0) {
+          await storageService.deleteFile(job.fileKey);
+          logger.info(`[Dedup] Purged file from storage: ${job.fileKey}`);
+        } else {
+          logger.info(`[Dedup] Kept file in storage: ${job.fileKey} (referenced by ${referencesCount} other records)`);
+        }
       } catch (storageError) {
         console.error("Failed to delete associated storage files:", storageError);
       }
