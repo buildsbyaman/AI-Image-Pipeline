@@ -6,7 +6,13 @@ import path from "path"
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: "0.0.0.0",
     allowedHosts: ["aiimagepipeline.buildsbyaman.in"],
+    hmr: {
+      host: "aiimagepipeline.buildsbyaman.in",
+      protocol: "wss",
+      clientPort: 443,
+    },
   },
   resolve: {
     alias: {
