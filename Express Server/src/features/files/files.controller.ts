@@ -15,6 +15,7 @@ const presignSchema = z.object({
     message: "Only JPG, PNG and WebP formats are supported",
   }),
   fileSize: z.number().positive("File size must be positive").max(5 * 1024 * 1024, "File exceeds 5MB limit"),
+  contentHash: z.string().optional(),
 });
 
 const confirmSchema = z.object({
@@ -34,7 +35,42 @@ export const generatePresignedUrl = async (req: AuthRequest, res: Response, next
     }
 
     const validatedData = presignSchema.parse(req.body);
+    const { contentHash } = validatedData;
 
+    // --- Deduplication check ---
+    // If the frontend provides a content hash, check whether an identical confirmed
+    // file already exists (from any user). If so, skip the R2 upload entirely.
+    if (contentHash) {
+      const existingFile = await File.findOne({ contentHash, status: "confirmed" });
+
+      if (existingFile) {
+        // Create a new confirmed File record for this user pointing at the shared R2 key.
+        // This gives the user their own ownership record without duplicating storage.
+        await File.create({
+          userId,
+          key: existingFile.key,
+          url: existingFile.url,
+          mimeType: validatedData.mimeType,
+          originalName: validatedData.fileName,
+          size: validatedData.fileSize,
+          status: "confirmed",
+          contentHash,
+        });
+
+        logger.info(`[Dedup] Hash ${contentHash} matched existing key ${existingFile.key} for user ${userId}`);
+
+        return res.status(200).json(
+          createResponse(true, "Duplicate image detected — reusing existing upload", {
+            key: existingFile.key,
+            uploadUrl: null,
+            publicUrl: existingFile.url,
+            alreadyUploaded: true,
+          })
+        );
+      }
+    }
+
+    // --- Normal path: generate a new presigned URL ---
     const { key, uploadUrl, publicUrl } = await storageService.generatePresignedUrl(
       validatedData.fileName,
       validatedData.mimeType
@@ -49,6 +85,7 @@ export const generatePresignedUrl = async (req: AuthRequest, res: Response, next
       url: publicUrl,
       mimeType: validatedData.mimeType,
       status: "pending",
+      contentHash: contentHash || undefined,
     });
 
     res.status(200).json(
@@ -56,6 +93,7 @@ export const generatePresignedUrl = async (req: AuthRequest, res: Response, next
         key,
         uploadUrl,
         publicUrl,
+        alreadyUploaded: false,
       })
     );
   } catch (error) {

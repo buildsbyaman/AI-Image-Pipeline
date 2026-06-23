@@ -1,0 +1,58 @@
+# Requires an Ingress controller installed in the cluster.
+# Recommended: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
+#
+# For TLS: install cert-manager and replace the tls section with your domain.
+# kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pipeline-ingress
+  namespace: imagepipeline
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Required for Socket.IO WebSocket upgrade
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    # Sticky sessions for Socket.IO — cookie-based affinity across Ingress replicas
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "PIPELINE_AFFINITY"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: your-domain.com
+      http:
+        paths:
+          # API and Socket.IO traffic → Express server
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: express-server-service
+                port:
+                  number: 8000
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: express-server-service
+                port:
+                  number: 8000
+          # All other traffic → Frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
+  # Uncomment and configure after setting up cert-manager:
+  # tls:
+  #   - hosts:
+  #       - your-domain.com
+  #     secretName: pipeline-tls-cert

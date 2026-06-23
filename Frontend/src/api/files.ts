@@ -4,12 +4,14 @@ export interface PresignRequest {
   fileName: string;
   mimeType: string;
   fileSize: number;
+  contentHash?: string;
 }
 
 export interface PresignResponse {
   key: string;
-  uploadUrl: string;
+  uploadUrl: string | null;
   publicUrl: string;
+  alreadyUploaded: boolean;
 }
 
 export interface ConfirmRequest {
@@ -28,3 +30,4 @@ export const confirmUpload = async (data: ConfirmRequest): Promise<any> => {
   const response = await authApi.post('/files/confirm', data);
   return response.data.data || response.data;
 };
+

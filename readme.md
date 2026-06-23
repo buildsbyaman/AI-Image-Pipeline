@@ -15,16 +15,16 @@ An industry-grade, AI-powered media processing application featuring a decoupled
 
 This project combines a modern React frontend, a robust Express backend with real-time Socket.IO notifications, an asynchronous three-stage AI Processing Worker (powered entirely by OpenAI), and a dedicated Email Notification system. 
 
-It supports enterprise-grade patterns including JWT-based authentication, MongoDB data modeling, secure direct-to-cloud file uploads via Cloudflare R2, and reliable background job orchestration using BullMQ.
+It supports enterprise-grade patterns including JWT-based authentication, MongoDB data modeling, secure direct-to-cloud file uploads via Cloudflare R2, content-based image deduplication, and reliable background job orchestration using BullMQ.
 
 ---
 
 ## Key Features
 
 *   **Decoupled AI Processing Pipeline**: A three-stage sequential background worker architecture utilizing **OpenAI (`gpt-4o-mini`)** for Content Safety Moderation (W1), Image Captioning (W2), and Label Detection (W3). If an image is flagged, subsequent AI stages are bypassed immediately to save API cost.
+*   **Content-Based Image Deduplication**: The frontend computes a **SHA-256 hash** of every file via the Web Crypto API before upload. If the hash matches a previously processed image, the backend skips the R2 upload, skips the entire AI pipeline, and returns a completed job with the cached results instantly — eliminating redundant storage writes and OpenAI API calls.
 *   **Real-Time Notification Gateway**: Socket.IO integration pushes status updates directly to authenticated clients in real-time as background jobs progress.
 *   **Granular Rate Limiting**: Features global IP-based rate limits combined with user-based rate limiting (100 req / 15 mins) on all authenticated endpoints to prevent API abuse.
-
 *   **Database-Free Microservices**: Both the AI Worker and Email System operate independently of the main database, coordinating exclusively via Redis queues (BullMQ) and events (`pipeline-events`).
 *   **Cloudflare R2 Integration**: Direct-to-R2 presigned file uploads securely transfer massive payloads without bottlenecking the backend server. A Cloudflare Worker validates the file payload just before the write to R2, ensuring the upload only succeeds if it passes the same validation rules implemented on the frontend.
 *   **Robust Email System**: Standalone asynchronous email notification microservice built on BullMQ, Redis, and Resend with custom HTML templating.
@@ -79,18 +79,18 @@ The project is divided into four main independent services. For a detailed techn
 
 The Main Backend hosts Socket.IO alongside its REST endpoints. When microservices (like the Worker or Email systems) publish updates to Redis, the Gateway forwards these events in real-time to authenticated clients.
 
-```mermaid
-graph TD
-    A[Frontend Client] -- "1. Socket Connection (JWT)" --> B(Express Socket.IO Gateway)
-    C[Redis Pub/Sub] -- "3. Publish 'notification.created'" --> B
-    D[Notification Microservice] -- "2. Produce Event" --> C
-    B -- "4. Emit 'notification:new'" --> A
-```
-
 **Connection Requirements**
 
 *   **Authentication**: A valid JWT must be passed in the connection handshake.
 *   **Private Rooms**: Authenticated connections join a private room (`user:<userId>`) to ensure secure message routing.
+
+---
+
+### Content-Based Deduplication
+
+Before uploading, the frontend computes a **SHA-256 hash** of the file bytes using the browser's built-in Web Crypto API. This hash is sent with the presign request, allowing the backend to detect identical images without storing any extra data.
+
+**User isolation is preserved**: each user receives their own `File` and `Job` records even on a cache hit. The shared R2 object is only accessible through the authenticated `/api/files/:key` endpoint which enforces ownership.
 
 ---
 
@@ -232,3 +232,45 @@ To shut down and wipe all data volumes (useful for a clean reset, which is neces
 ```bash
 docker compose down -v
 ```
+
+---
+
+### Running with Kubernetes
+
+You can deploy the entire stack to a Kubernetes cluster using the provided manifests in the `k8s/` directory.
+
+#### Step 1: Configure Secrets
+
+The repository includes a template file for Kubernetes secrets. First, copy the example file to create your actual secrets file (which is git-ignored):
+
+```bash
+cp k8s/01-secrets.example.yaml k8s/01-secrets.yaml
+```
+
+Open the new `k8s/01-secrets.yaml` file and replace the placeholder values with your actual base64-encoded credentials. You can generate base64 strings using:
+
+```bash
+echo -n "your-value" | base64
+```
+
+#### Step 2: Deploy to Cluster
+
+Use the provided deployment script to build the Docker images, push them to your registry, and apply the Kubernetes manifests in the correct order.
+
+```bash
+REGISTRY=your-docker-registry-username ./k8s/deploy.sh
+```
+
+**Note:** If your images are already built and pushed, you can run the deployment script with the `--skip-build` flag:
+
+```bash
+REGISTRY=your-docker-registry-username ./k8s/deploy.sh --skip-build
+```
+
+#### Step 3: Accessing the Application
+
+The application is configured to use an Nginx Ingress Controller. Ensure you have an Ingress controller installed on your cluster. Traffic is routed as follows:
+*   `/api` and `/socket.io` -> Express Server
+*   `/` -> Frontend
+
+Update your DNS or `/etc/hosts` file to point your configured domain (defined in `k8s/09-ingress.yaml`) to the Ingress controller's IP address.

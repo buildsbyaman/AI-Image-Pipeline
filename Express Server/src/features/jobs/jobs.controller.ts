@@ -1,10 +1,11 @@
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../auth/auth.middleware";
-import { Job, File, Result } from "../../database";
+import { Job, File, Result, JobStatus } from "../../database";
 import { storageService } from "../files/files.service";
 import { safetyCheckQueue } from "./jobs.queue";
 import { createResponse } from "../../shared/response";
 import { NotFoundError, BadRequestError } from "../../shared/errors";
+import { logger } from "../../shared/logger";
 
 // Retrieves all jobs owned by the currently authenticated user
 export const getJobs = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -90,6 +91,37 @@ export const createJob = async (req: AuthRequest, res: Response, next: NextFunct
       throw new BadRequestError("Invalid file key or file not found");
     }
 
+    // --- Deduplication fast-path ---
+    // If another completed job exists for this fileKey (same R2 object, from any user),
+    // copy its Result and mark this new job as instantly COMPLETED — no pipeline needed.
+    const existingCompletedJob = await Job.findOne({ fileKey, status: JobStatus.COMPLETED });
+    if (existingCompletedJob) {
+      const existingResult = await Result.findOne({ jobId: existingCompletedJob._id });
+
+      if (existingResult) {
+        const job = await Job.create({ userId, fileKey, status: JobStatus.COMPLETED });
+
+        await Result.create({
+          jobId: job._id,
+          caption: existingResult.caption,
+          labels: existingResult.labels,
+          flagged: existingResult.flagged,
+          flaggedCategory: existingResult.flaggedCategory,
+        });
+
+        logger.info(`[Dedup] Job ${job.id} instantly completed by copying result from job ${existingCompletedJob.id}`);
+
+        return res.status(201).json(
+          createResponse(true, "Job instantly completed using cached pipeline result", {
+            jobId: job.id,
+            status: job.status,
+            deduplicated: true,
+          })
+        );
+      }
+    }
+
+    // --- Normal path: write initial job record and enqueue to worker ---
     // Write initial job record to database
     const job = await Job.create({
       userId,
@@ -110,8 +142,10 @@ export const createJob = async (req: AuthRequest, res: Response, next: NextFunct
       createResponse(true, "Job created and queued successfully", {
         jobId: job.id,
         status: job.status,
+        deduplicated: false,
       })
     );
+
   } catch (error) {
     next(error);
   }

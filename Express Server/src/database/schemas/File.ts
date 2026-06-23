@@ -9,6 +9,7 @@ export interface IFile extends Document {
   mimeType: string;
   size: number;
   status: FileStatus;
+  contentHash?: string;
   userId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -21,6 +22,7 @@ const FileSchema: Schema = new Schema({
   mimeType: { type: String, required: true },
   size: { type: Number, required: false, default: 0 },
   status: { type: String, enum: ['pending', 'confirmed'], default: 'pending' },
+  contentHash: { type: String, index: true, sparse: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User' },
 }, {
   timestamps: true,

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-config
+  namespace: imagepipeline
+data:
+  MONGO_DB_NAME: aiimagepipeline
+  REDIS_HOST: redis-service
+  REDIS_PORT: "6379"
+  NOTIFICATION_SERVICE_URL: http://notification-service:5005
+  NODE_ENV: production

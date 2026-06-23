@@ -36,6 +36,7 @@ lerna-debug.log*
 setup_env.sh
 *.env
 ai-image-pipeline.json
+k8s/*secrets*.yaml
 
 # System/OS files
 **/.DS_Store

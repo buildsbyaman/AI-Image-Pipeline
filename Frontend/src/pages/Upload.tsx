@@ -16,48 +16,66 @@ export default function Upload() {
   const { mutateAsync: createJob, isPending: isCreatingJob } = useCreateJob();
   const navigate = useNavigate();
 
+  const [isDuplicate, setIsDuplicate] = useState(false);
+
+  // Computes SHA-256 of a file and returns it as a hex string.
+  // Uses the browser's built-in Web Crypto API — no extra dependencies needed.
+  const computeSha256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
   const handleUpload = async (fileToUpload: File) => {
     setFile(fileToUpload);
     setIsUploading(true);
     setUploadProgress(0);
+    setIsDuplicate(false);
 
     try {
-      // 1. Presign URL
-      const { key, uploadUrl } = await presignUpload({
+      // 1. Compute content hash for dedup check
+      const contentHash = await computeSha256(fileToUpload);
+
+      // 2. Presign (backend checks hash for duplicates)
+      const { key, uploadUrl, alreadyUploaded } = await presignUpload({
         fileName: fileToUpload.name,
         mimeType: fileToUpload.type,
         fileSize: fileToUpload.size,
+        contentHash,
       });
 
-      // 2. Direct Upload to R2
-      await axios.put(uploadUrl, fileToUpload, {
-        headers: {
-          'Content-Type': fileToUpload.type,
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 95) / progressEvent.total
-            );
-            setUploadProgress(percentCompleted);
-          }
-        },
-      });
+      if (alreadyUploaded) {
+        // Cache hit — skip R2 upload and confirm entirely
+        setIsDuplicate(true);
+        setUploadProgress(100);
+      } else {
+        // 3. Direct Upload to R2
+        await axios.put(uploadUrl!, fileToUpload, {
+          headers: { 'Content-Type': fileToUpload.type },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              setUploadProgress(Math.round((progressEvent.loaded * 95) / progressEvent.total));
+            }
+          },
+        });
 
-      // 3. Confirm Upload
-      await confirmUpload({
-        key,
-        originalName: fileToUpload.name,
-        mimeType: fileToUpload.type,
-        size: fileToUpload.size,
-      });
+        // 4. Confirm Upload
+        await confirmUpload({
+          key,
+          originalName: fileToUpload.name,
+          mimeType: fileToUpload.type,
+          size: fileToUpload.size,
+        });
 
-      // 4. Create Job
-      setUploadProgress(100);
+        setUploadProgress(100);
+      }
+
+      // 5. Create Job (backend instantly completes if dedup hit)
       const response = await createJob(key);
 
-      toast.success('Image uploaded successfully');
-      // Delay navigation slightly to let the user see the 100% completed status
+      toast.success(alreadyUploaded ? 'Duplicate detected — results ready instantly!' : 'Image uploaded successfully');
       setTimeout(() => {
         if (window.location.pathname === '/upload') {
           navigate(`/jobs/${response.jobId}`);
@@ -67,10 +85,12 @@ export default function Upload() {
       toast.error('Failed to upload image. Please check your connection and try again.');
       setFile(null);
       setUploadProgress(0);
+      setIsDuplicate(false);
     } finally {
       setIsUploading(false);
     }
   };
+
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     accept: {
@@ -164,10 +184,13 @@ export default function Upload() {
                   </div>
 
                   <h3 className="text-lg font-semibold text-zinc-100 mb-2">
-                    {uploadProgress === 100 ? 'Finalizing...' : 'Uploading Image...'}
+                    {isDuplicate ? 'Duplicate Detected!' : uploadProgress === 100 ? 'Finalizing...' : 'Uploading Image...'}
                   </h3>
                   <p className="text-sm text-zinc-400 max-w-sm mb-6">
-                    Sending {file?.name} to the pipeline server.
+                    {isDuplicate
+                      ? 'This image was already processed. Fetching cached results instantly.'
+                      : `Sending ${file?.name} to the pipeline server.`
+                    }
                   </p>
 
                   <div className="w-64">
@@ -177,7 +200,7 @@ export default function Upload() {
                     </div>
                     <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800">
                       <div 
-                        className="bg-[#FAFAFA] h-full rounded-full transition-[width] duration-150 ease-out"
+                        className={`h-full rounded-full transition-[width] duration-150 ease-out ${isDuplicate ? 'bg-emerald-500' : 'bg-[#FAFAFA]'}`}
                         style={{ width: `${uploadProgress}%` }}
                       />
                     </div>
