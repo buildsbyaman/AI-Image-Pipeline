@@ -21,7 +21,7 @@ It supports enterprise-grade patterns including JWT-based authentication, MongoD
 
 ## Key Features
 
-*   **Decoupled AI Processing Pipeline**: A three-stage sequential background worker architecture utilizing **OpenAI (`gpt-4o-mini`)** for Content Safety Moderation (W1), Image Captioning (W2), and Label Detection (W3). If an image is flagged, subsequent AI stages are bypassed immediately to save API cost.
+*   **Decoupled AI Processing Pipeline**: A three-stage sequential background worker architecture utilizing **OpenAI (`gpt-4o-mini`)** for Content Safety Moderation (W1), Label Detection (W2), and Image Captioning (W3). If an image is flagged, subsequent AI stages are bypassed immediately to save API cost.
 *   **Content-Based Image Deduplication**: The frontend computes a **SHA-256 hash** of every file via the Web Crypto API before upload. If the hash matches a previously processed image, the backend skips the R2 upload, skips the entire AI pipeline, and returns a completed job with the cached results instantly — eliminating redundant storage writes and OpenAI API calls.
 *   **Real-Time Notification Gateway**: Socket.IO integration pushes status updates directly to authenticated clients in real-time as background jobs progress.
 *   **Granular Rate Limiting**: Features global IP-based rate limits combined with user-based rate limiting (100 req / 15 mins) on all authenticated endpoints to prevent API abuse.
