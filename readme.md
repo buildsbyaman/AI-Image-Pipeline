@@ -19,6 +19,12 @@ It supports enterprise-grade patterns including JWT-based authentication, MongoD
 
 ---
 
+### Project Status: Temporarily Paused
+
+This project has been paused because I can no longer afford the server and database infrastructure costs required to keep the pipeline operational. 
+
+---
+
 ## Key Features
 
 *   **Decoupled AI Processing Pipeline**: A three-stage sequential background worker architecture utilizing **OpenAI (`gpt-4o-mini`)** for Content Safety Moderation (W1), Label Detection (W2), and Image Captioning (W3). If an image is flagged, subsequent AI stages are bypassed immediately to save API cost.

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paused | AI Image Pipeline</title>
+    <meta name="description"
+        content="AI Image Pipeline is currently paused due to infrastructure funding constraints." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23000000' stroke='%23f5a623' stroke-width='8'/%3E%3Crect x='42' y='33' width='6' height='34' rx='2' fill='%23ffffff'/%3E%3Crect x='52' y='33' width='6' height='34' rx='2' fill='%23ffffff'/%3E%3C/svg%3E">
+    <style>
+        :root {
+            --bg: #000000;
+            --fg: #ededed;
+            --muted: #666666;
+            --subtle: #444444;
+            --border: #222222;
+            --surface: #0a0a0a;
+            --amber: #f5a623;
+            --amber-dim: rgba(245, 166, 35, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .wrapper {
+            max-width: 480px;
+            width: 100%;
+            animation: fadeUp 0.6s ease-out both;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Pause Icon */
+        .icon-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .pause-icon {
+            width: 48px;
+            height: 48px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pause-icon .bar {
+            width: 3px;
+            height: 16px;
+            background: var(--fg);
+            border-radius: 2px;
+            margin: 0 2.5px;
+        }
+
+        /* Badge */
+        .badge {
+            text-align: center;
+            margin-bottom: 1.75rem;
+        }
+
+        .badge span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--amber);
+            background: var(--amber-dim);
+            border: 1px solid rgba(245, 166, 35, 0.18);
+            padding: 4px 10px;
+            border-radius: 100px;
+            line-height: 1;
+        }
+
+        .badge .dot-svg {
+            color: var(--amber);
+            filter: drop-shadow(0 0 2px var(--amber));
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        /* Heading */
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.035em;
+            line-height: 1.2;
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--muted);
+            line-height: 1.65;
+            margin-bottom: 2.25rem;
+            max-width: 420px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        /* Footer */
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.25rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-links a {
+            color: var(--subtle);
+            text-decoration: none;
+            font-size: 13px;
+            transition: color 0.15s;
+        }
+
+        .footer-links a:hover {
+            color: var(--fg);
+        }
+
+        .copy {
+            text-align: center;
+            font-size: 12px;
+            color: var(--subtle);
+            margin-top: 1.25rem;
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+
+        <div class="icon-container">
+            <div class="pause-icon">
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+        </div>
+
+        <div class="badge">
+            <span>
+                <svg class="dot-svg" width="6" height="6" viewBox="0 0 6 6" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="3" cy="3" r="3" />
+                </svg>
+                Paused
+            </span>
+        </div>
+
+        <h1>AI Image Pipeline</h1>
+
+        <p class="subtitle">
+            I've paused this project because I can no longer afford the infrastructure costs needed to keep it running.
+        </p>
+
+        <div class="footer-links">
+            <a href="mailto:amankumarunofficial2810@gmail.com">Contact</a>
+            <a href="https://github.com/buildsbyaman/AI-Image-Pipeline" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+
+        <p class="copy">&copy; 2026 AI Image Pipeline</p>
+    </div>
+</body>
+
+</html>
